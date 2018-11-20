@@ -57,7 +57,50 @@ mainCalendar = do
 
 -- Exercise 1
 parseDateTime :: Parser Char DateTime
-parseDateTime = undefined
+parseDateTime = DateTime <$> parseDate <*> parseTime <*> parseUTC
+
+parseDate :: Parser Char Date
+parseDate = Date <$> parseYear <*> parseMonth <*> parseDay
+
+parseYear :: Parser Char Year
+parseYear = toYear <$> digit <*> digit <*> digit <*> digit
+          where toYear a b c d = Year $ toInt $ charList a b c d
+                charList a b c d = a : b : c : d : []
+
+parseMonth :: Parser Char Month
+parseMonth = toMonth <$> digit <*> digit
+           where toMonth a b = Month $ toInt $ tdtd a b
+
+parseDay :: Parser Char Day
+parseDay = toDay <$> digit <*> digit
+         where toDay a b = Day $ toInt $ tdtd a b
+
+parseTime :: Parser Char Time 
+parseTime = Time <$> parseHour <*> parseMinute <*> parseSecond
+
+parseHour :: Parser Char Hour
+parseHour = toHour <$> digit <*> digit
+          where toHour a b = Hour $ toInt $ tdtd a b
+
+parseMinute :: Parser Char Minute
+parseMinute = toMinute <$> digit <*> digit
+            where toMinute a b = Minute $ toInt $ tdtd a b
+
+
+parseSecond :: Parser Char Second
+parseSecond = toSecond <$> digit <*> digit
+            where toSecond a b = Second $ toInt $ tdtd a b
+
+parseUTC :: Parser Char Bool
+parseUTC = satisfy (=='z') <*> option False
+           
+
+-- Combine two chars to a list
+tdtd :: Char -> Char -> [Char]
+tdtd a b = a : b : []
+
+toInt :: String -> Int
+toInt xs = read xs
 
 -- Exercise 2
 run :: Parser a b -> [a] -> Maybe b
