@@ -75,7 +75,7 @@ parseDay :: Parser Char Day
 parseDay = toDay <$> digit <*> digit
          where toDay a b = Day $ toInt $ tdtd a b
 
-parseTime :: Parser Char Time 
+parseTime :: Parser Char Time
 parseTime = Time <$> parseHour <*> parseMinute <*> parseSecond
 
 parseHour :: Parser Char Hour
@@ -93,7 +93,7 @@ parseSecond = toSecond <$> digit <*> digit
 
 parseUTC :: Parser Char Bool
 parseUTC = satisfy (=='z') <*> option False
-           
+
 
 -- Combine two chars to a list
 tdtd :: Char -> Char -> [Char]
@@ -106,9 +106,22 @@ toInt xs = read xs
 run :: Parser a b -> [a] -> Maybe b
 run = undefined
 
+
 -- Exercise 3
 printDateTime :: DateTime -> String
-printDateTime = undefined
+-- year month day datesep hour minute second timeutc
+printDateTime dt = y ++ m ++ da ++ datesep ++ h ++ mi ++ s ++ timeutc ++ []
+            where d = date dt -- Date
+                  t = time dt -- Time
+                  u = utc dt  -- UTC
+                  y = unYear d -- Year
+                  m = unMonth d -- Month
+                  da = unDay d -- Day
+                  datesep = "T"
+                  h = unHour t -- Hour
+                  mi = unMinute t -- Minute
+                  s = unSecond t -- Seconds
+                  timeutc = "Z"
 
 -- Exercise 4
 parsePrint s = fmap printDateTime $ run parseDateTime s
@@ -162,4 +175,3 @@ timeSpent = undefined
 -- Exercise 11
 ppMonth :: Year -> Month -> Calendar -> String
 ppMonth = undefined
-
