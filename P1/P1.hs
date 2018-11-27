@@ -195,19 +195,19 @@ type Location    = Text
 type Token = String
      --deriving (Eq, Ord, Show)
   
-scanCalendar :: Parser Char [Token]
-scanCalendar = undefined
+--scanCalendar :: Parser Char [Char]
+--scanCalendar = splitByString []
+
+
+
+
 
 splitByString :: String -> String -> [String]
-splitByString xs pattern = splitOn xs
-
-
-
-{-
-splitByString :: String -> String -> [String]
-splitByString ('\\':'r':'\\':'n':xs) acc = acc : splitByString xs []
+splitByString (a:b:c:d:xs) acc | a:b:c:d:[] == "\\r\\n" = error "noot" --acc : splitByString xs []
+                               | otherwise = error (b:c:d:[]) -- splitByString (b:c:d) (acc ++ [a])
 splitByString (x:xs) acc = splitByString xs (acc ++ [x])
-splitByString [] acc = [acc]
+splitByString [] acc = []
+{-}
 
 splitByReturn :: String -> [String]
 splitByReturn xs = splitByString "\\r\\n"
