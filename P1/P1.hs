@@ -139,14 +139,53 @@ parsePrint s = fmap printDateTime $ run parseDateTime s
 
 -- Exercise 5
 checkDateTime :: DateTime -> Bool
-checkDateTime = undefined
+checkDateTime dt = checkDate (date dt) && checkTime (time dt)
+                where checkDate d = True && checkMonth (unMonth (month d)) && checkDay (unDay (day d))
+                      checkTime t = checkHour (unHour (hour t)) && checkMinute (unMinute (minute t)) && checkSecond (unSecond (second t))
+                      checkMonth m = m >= 1 && m <= 12
+                      -- See whether the day is correct by checking the month and year, if needed
+                      checkDay day | unMonth (month (date dt)) `elem` [1, 3, 5, 7, 8, 10, 12] = day >= 1 && day <= 31
+                                   | unMonth (month (date dt)) `elem` [4, 6, 9, 11]           = day >= 1 && day <= 30
+                                   | unMonth (month (date dt)) == 2                           = case (unYear (year (date dt))) `mod` 4 of
+                                      0 -> day >= 1 && day <= 29
+                                      _ -> day >= 1 && day <= 28
+                                   | otherwise = False
+                      checkHour h = h >= 0 && h <= 23
+                      checkMinute m = m >= 0 && m <= 59
+                      checkSecond s = s >= 0 && s <= 59
 
 -- Exercise 6
-data Calendar = Calendar
+data Calendar = Calendar Begin Header Events End
     deriving (Eq, Ord, Show)
 
-data Event = Event
+data Header = Header Calprop
+deriving (Eq, Ord, Show)
+
+type Text = String
+
+data Begin = VCALENDAR | VEVENT 
+data End   = VCALENDAR | VEVENT 
+
+data Calprop = Prodid | Version
+
+data Prodid = Prodid Text 
+data Version = Version Text 
+
+data Events = Event | Event Events   
+data Event = Event Begin Properties End
     deriving (Eq, Ord, Show)
+
+data Properties = Property | Property Properties
+data Property   = Dtstamp | Uid | Dtstart | Dtend | Description | Summary | Location
+
+type Dtstamp     = DateTime 
+type Uid         = Text 
+type Dtstart     = DateTime 
+type Dtend       = DateTime 
+type Description = Text 
+type Summary     = Text 
+type Location    = Text 
+
 
 -- Exercise 7
 data Token = Token
@@ -159,7 +198,7 @@ parseCalendar :: Parser Token Calendar
 parseCalendar = undefined
 
 recognizeCalendar :: String -> Maybe Calendar
-recognizeCalendar s = run scanCalendar s >>= run parseCalendar
+recognizeCalendar s = error s --run scanCalendar s >>= run parseCalendar
 
 -- Exercise 8
 readCalendar :: FilePath -> IO (Maybe Calendar)
