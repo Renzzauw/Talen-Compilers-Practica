@@ -1,6 +1,7 @@
 import ParseLib.Abstract
 import System.Environment
 import Prelude hiding ((<*))
+import Data.List.Split
 
 -- Starting Framework
 
@@ -159,24 +160,27 @@ data Calendar = Calendar Begin Header Events End
     deriving (Eq, Ord, Show)
 
 data Header = Header Calprop
-deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show)
 
 type Text = String
 
-data Begin = VCALENDAR | VEVENT 
-data End   = VCALENDAR | VEVENT 
-
-data Calprop = Prodid | Version
-
-data Prodid = Prodid Text 
-data Version = Version Text 
-
-data Events = Event | Event Events   
-data Event = Event Begin Properties End
+data BeginEnd = VCALENDAR | VEVENT 
+    deriving (Eq, Ord, Show)
+type Begin = BeginEnd
+type End = BeginEnd
+    
+data Calprop = Prodid Text | Version Text
     deriving (Eq, Ord, Show)
 
-data Properties = Property | Property Properties
+data Events = SingleE Event | MultipleE Event Events   
+    deriving (Eq, Ord, Show) 
+data Event = Begin Properties End
+    deriving (Eq, Ord, Show)
+
+data Properties = SingleP Property | MultipleP Property Properties
+    deriving (Eq, Ord, Show)
 data Property   = Dtstamp | Uid | Dtstart | Dtend | Description | Summary | Location
+    deriving (Eq, Ord, Show)
 
 type Dtstamp     = DateTime 
 type Uid         = Text 
@@ -188,11 +192,31 @@ type Location    = Text
 
 
 -- Exercise 7
-data Token = Token
-    deriving (Eq, Ord, Show)
-
+type Token = String
+     --deriving (Eq, Ord, Show)
+  
 scanCalendar :: Parser Char [Token]
 scanCalendar = undefined
+
+splitByString :: String -> String -> [String]
+splitByString xs pattern = splitOn xs
+
+
+
+{-
+splitByString :: String -> String -> [String]
+splitByString ('\\':'r':'\\':'n':xs) acc = acc : splitByString xs []
+splitByString (x:xs) acc = splitByString xs (acc ++ [x])
+splitByString [] acc = [acc]
+
+splitByReturn :: String -> [String]
+splitByReturn xs = splitByString "\\r\\n"
+
+splitPropertiesInPairs :: [String] -> [(String, String)]
+splitPropertiesInPairs xs = map (splitByString xs) ':' (splitByReturn xs)
+-}
+
+
 
 parseCalendar :: Parser Token Calendar
 parseCalendar = undefined
