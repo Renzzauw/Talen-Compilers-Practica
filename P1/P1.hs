@@ -1,5 +1,6 @@
 import ParseLib.Abstract
 import System.Environment
+import Prelude hiding ((<*))
 
 -- Starting Framework
 
@@ -57,7 +58,7 @@ mainCalendar = do
 
 -- Exercise 1
 parseDateTime :: Parser Char DateTime
-parseDateTime = DateTime <$> parseDate <*> parseTime <*> parseUTC
+parseDateTime = DateTime <$> parseDate <* parseSep <*> parseTime <*> parseUTC
 
 parseDate :: Parser Char Date
 parseDate = Date <$> parseYear <*> parseMonth <*> parseDay
@@ -91,9 +92,15 @@ parseSecond :: Parser Char Second
 parseSecond = toSecond <$> digit <*> digit
             where toSecond a b = Second $ toInt $ tdtd a b
 
-parseUTC :: Parser Char Bool
-parseUTC = satisfy (=='z') <*> option False
+parseSep :: Parser Char Char
+parseSep = satisfy (=='T')
 
+zToBool :: Char -> Bool
+zToBool 'Z' = True
+zToBool _   = False
+
+parseUTC :: Parser Char Bool
+parseUTC = zToBool <$> option (satisfy (=='Z')) 'F'
 
 -- Combine two chars to a list
 tdtd :: Char -> Char -> [Char]
@@ -104,24 +111,28 @@ toInt xs = read xs
 
 -- Exercise 2
 run :: Parser a b -> [a] -> Maybe b
-run = undefined
+run p s = case prs of
+    ((_,[]):_) -> Just $ fst $ head prs
+    _      -> Nothing
+    where prs = parse p s
 
 
 -- Exercise 3
 printDateTime :: DateTime -> String
 -- year month day datesep hour minute second timeutc
-printDateTime dt = y ++ m ++ da ++ datesep ++ h ++ mi ++ s ++ timeutc ++ []
+printDateTime dt = y ++ m ++ da ++ datesep ++ h ++ mi ++ s ++ timeutc
             where d = date dt -- Date
                   t = time dt -- Time
-                  u = utc dt  -- UTC
-                  y = unYear d -- Year
-                  m = unMonth d -- Month
-                  da = unDay d -- Day
+                  y = show $ unYear $ year d -- Year
+                  m = show $ unMonth $ month d -- Month
+                  da = show $ unDay $ day d -- Day
                   datesep = "T"
-                  h = unHour t -- Hour
-                  mi = unMinute t -- Minute
-                  s = unSecond t -- Seconds
-                  timeutc = "Z"
+                  h = show $ unHour $ hour t -- Hour
+                  mi = show $ unMinute $ minute t -- Minute
+                  s = show $ unSecond $ second t -- Seconds
+                  timeutc = bToS $ utc dt
+                  bToS True  = "Z"
+                  bToS False = ""
 
 -- Exercise 4
 parsePrint s = fmap printDateTime $ run parseDateTime s
