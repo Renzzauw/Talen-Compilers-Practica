@@ -165,16 +165,16 @@ type Text = String
 data BeginEnd = Begin Text | End Text 
     deriving (Eq, Ord)
 instance Show BeginEnd where
-        show Begin t = "BEGIN:" + t
-        show End t   = "END:" + t
+        show (Begin t) = "BEGIN:" ++ t ++ crlf
+        show (End t)   = "END:" ++ t ++ crlf
 
 
     
 data Calprop = Prodid {unProdid :: Text} | Version {unVersion :: Text}
     deriving (Eq, Ord)
 instance Show Calprop where
-    show Prodid t  = "PRODID:" + t
-    show Version t = "VERSION:" + t
+    show (Prodid t)  = "PRODID:" ++ t ++ crlf
+    show (Version t) = "VERSION:" ++ t ++ crlf
 
 data Event = Event BeginEnd [Property] BeginEnd
     deriving (Eq, Ord, Show)
@@ -186,30 +186,30 @@ data Property   = Dtstamp     { unStamp :: DateTime}
                 | Description { unDesc :: Text }
                 | Summary     { unSum :: Text }
                 | Location    { unLoc :: Text}
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord)
+    
+instance Show Property where
+    show (Dtstamp dt)    = "DTSTAMP:" ++ show dt
+    show (Uid t)         = "UID:" ++ t
+    show (Dtstart dt)    = "DTSTART:" ++ show dt
+    show (Dtend dt)      = "DTEND:" ++ show dt
+    show (Description t) = "DESCRIPTION:" + t
+    show (Summary t)     = "SUMMARY" + t
+    show (Location t)    = "LOCATION" + t
 
-type Dtstamp     = DateTime 
-type Uid         = Text 
-type Dtstart     = DateTime 
-type Dtend       = DateTime 
-type Description = Text 
-type Summary     = Text 
-type Location    = Text 
+crlf :: String
+crlf = "\\r\\n"
 
 
 -- Exercise 7
-data Token = Token Text | Crlf Text
+data Token = Token {unText :: Text}
      deriving (Eq, Ord, Show)
   
 scanCalendar :: Parser Char [Token]
-scanCalendar = Token . unwords <$> greedy1 (identifier <* scanCrlf)
-
-scanCrlf :: Parser Char String
-scanCrlf = Crlf <$> satisfy '\\' <*> satisfy 'r' <*> satisfy '\\' <*> satisfy 'n'
-
+scanCalendar = Token <$> greedy1 (identifier <* idParser "\\r\\n")
 
 parseCalendar :: Parser Token Calendar
-parseCalendar = Calendar <$> begincal <*> calp <*> calp <*> greedy1 event <*> endcal
+parseCalendar = Calendar <$> begincal <*> calp <*> calp <*> greedy1 event <*> endcal <* eof
 
 event :: Parser Char Event
 event = Event <$> beginev <*> greedy1 prop <*> endev
@@ -279,15 +279,17 @@ readCalendar path = do
 -- Exercise 9
 -- DO NOT use a derived Show instance. Your printing style needs to be nicer than that :)
 printCalendar :: Calendar -> String
-printCalendar cal = undefined
+printCalendar (Calendar begin prop1 prop2 events end) = show begin ++ show prop1 ++ show prop2 ++ foldr (++) [] (map printEvent events) ++ show end
+
+printEvent :: Event -> String
+printEvent (Event begin props end) = show begin ++ foldr (++) [] (map printProp props) ++ show end
+
+printProp :: Property -> String
+printProp p = show p ++ crlf
 
 -- Exercise 10
 countEvents :: Calendar -> Int
-countEvents (Calendar _ _ _ events _) = counter events
-
-counter :: Events -> Int
-counter (SingleE _) = 1
-counter (MultipleE _ events) = 1 + counter events
+countEvents (Calendar _ _ _ events _) = length events
 
 findEvents :: DateTime -> Calendar -> [Event]
 findEvents time (Calendar _ _ _ events _) = filter (find time) events
@@ -323,8 +325,29 @@ doesOverlap ((Event _ props1 _), (Event _ props2 _)) | ( (beg1 <= end2) && end1 
                                                           end2 = getEndTime props2 
  
 timeSpent :: String -> Calendar -> Int
-timeSpent sum (Calendar _ _ _ events _) = length [x | x <- events, x moet de sum hebben]
+timeSpent summary (Calendar _ _ _ events _) = --sum [x | x <- eventTime, x moet de summary hebben]
+                                            where props = map 
 
+get[Event] -> [[Property]]
+
+matchSummary :: String -> [Property] -> Bool
+matchSummary summary props = (getSummary props) == summary
+
+getSummary :: [Property] -> String
+getSummary [] = error "Invalid event"
+getSummary ((Summary summ):xs) = summ
+getSummary (_:xs) = getSummary xs
+
+eventTime :: Event -> Int
+eventTime (Event _ props _) = timeDifference beg end
+                        where beg   = time (getStartTime props)
+                              end   = time (getEndTime props)
+
+-- Not sure of deze klopt qua minuten aftrekken van elkaar...
+timeDifference :: Time -> Time -> Int
+timeDifference t1 t2 = hours * 60 + mins
+                    where hours = hour (t2 - t1)
+                          mins  = minutes (t2 - t1)
 
 
 -- Exercise 11
