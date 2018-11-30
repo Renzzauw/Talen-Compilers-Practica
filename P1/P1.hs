@@ -1,6 +1,7 @@
 import ParseLib.Abstract
 import System.Environment
-import Prelude hiding ((<*))
+import System.IO
+import Prelude hiding ((<*),(*>))
 import Data.List.Split
 
 -- Starting Framework
@@ -156,38 +157,35 @@ checkDateTime dt = checkDate (date dt) && checkTime (time dt)
                       checkSecond s = s >= 0 && s <= 59
 
 -- Exercise 6
-data Calendar = Calendar Begin Calprop Calprop Events End
+data Calendar = Calendar BeginEnd Calprop Calprop [Event] BeginEnd
     deriving (Eq, Ord, Show)
 
 type Text = String
 
-data BeginEnd = VCALENDAR | VEVENT 
-    deriving (Eq, Ord, Show)
+data BeginEnd = Begin Text | End Text 
+    deriving (Eq, Ord)
+instance Show BeginEnd where
+        show Begin t = "BEGIN:" + t
+        show End t   = "END:" + t
 
-type Begin = BeginEnd
-instance Show a => Show (Begin a) where
-    show VCALENDAR = "BEGIN:VCALENDAR"
-    show VEVENT    = "BEGIN:VEVENT"
 
-type End = BeginEnd
-instance Show a => Show (End a) where
-    show VCALENDAR = "END:VCALENDAR"
-    show VEVENT    = "END:VEVENT"
     
-data Calprop = Prodid Text | Version Text
-    deriving (Eq, Ord, Show)
-instance Show a => Show (Calprop a) where
+data Calprop = Prodid {unProdid :: Text} | Version {unVersion :: Text}
+    deriving (Eq, Ord)
+instance Show Calprop where
     show Prodid t  = "PRODID:" + t
     show Version t = "VERSION:" + t
 
-data Events = SingleE Event | MultipleE Event Events   
-    deriving (Eq, Ord, Show) 
-data Event = Begin Properties End
+data Event = Event BeginEnd [Property] BeginEnd
     deriving (Eq, Ord, Show)
 
-data Properties = SingleP Property | MultipleP Property Properties
-    deriving (Eq, Ord, Show)
-data Property   = Dtstamp | Uid | Dtstart | Dtend | Description | Summary | Location
+data Property   = Dtstamp     { unStamp :: DateTime}
+                | Uid         { unUid :: Text}
+                | Dtstart     { unStart :: DateTime }
+                | Dtend       { unEnd :: DateTime }
+                | Description { unDesc :: Text }
+                | Summary     { unSum :: Text }
+                | Location    { unLoc :: Text}
     deriving (Eq, Ord, Show)
 
 type Dtstamp     = DateTime 
@@ -200,36 +198,71 @@ type Location    = Text
 
 
 -- Exercise 7
-type Token = String
-     --deriving (Eq, Ord, Show)
+data Token = Token Text | Crlf Text
+     deriving (Eq, Ord, Show)
   
 scanCalendar :: Parser Char [Token]
-scanCalendar = greedy 
+scanCalendar = Token . unwords <$> greedy1 (identifier <* scanCrlf)
 
-scanCrlf :: Parser Char
-
-
-
-
-
-splitByString :: String -> String -> [String]
-splitByString (a:b:c:d:xs) acc | a:b:c:d:[] == "\\r\\n" = error "noot" --acc : splitByString xs []
-                               | otherwise = error (b:c:d:[]) -- splitByString (b:c:d) (acc ++ [a])
-splitByString (x:xs) acc = splitByString xs (acc ++ [x])
-splitByString [] acc = []
-{-}
-
-splitByReturn :: String -> [String]
-splitByReturn xs = splitByString "\\r\\n"
-
-splitPropertiesInPairs :: [String] -> [(String, String)]
-splitPropertiesInPairs xs = map (splitByString xs) ':' (splitByReturn xs)
--}
-
+scanCrlf :: Parser Char String
+scanCrlf = Crlf <$> satisfy '\\' <*> satisfy 'r' <*> satisfy '\\' <*> satisfy 'n'
 
 
 parseCalendar :: Parser Token Calendar
-parseCalendar = undefined
+parseCalendar = Calendar <$> begincal <*> calp <*> calp <*> greedy1 event <*> endcal
+
+event :: Parser Char Event
+event = Event <$> beginev <*> greedy1 prop <*> endev
+
+prop :: Parser Char Property
+prop = Dtstamp <$> parseDateTime <<|> uid <<|> Dtstart <$> parseDateTime <<|> Dtend <$> parseDateTime <<|> description <<|> summary <<|> location
+
+uid :: Parser Char Property
+uid = Uid <$> idParser "UID:"
+
+description :: Parser Char Property
+description = Description <$> idParser "DESCRIPTION:"
+
+summary :: Parser Char Property
+summary = Summary <$> idParser "SUMMARY:"
+
+location :: Parser Char Property
+location = Location <$> idParser "LOCATION:"
+
+-- Always has to parse the VCALENDAR value
+begincal :: Parser Char BeginEnd
+begincal = Begin <$> doubleParser "BEGIN:" "VCALENDAR"
+
+-- Always has to parse the VEVENT value
+beginev :: Parser Char BeginEnd
+beginev = Begin <$> doubleParser "BEGIN:" "VEVENT"
+
+-- Always has to parse the VCALENDAR value
+endcal :: Parser Char BeginEnd
+endcal = End <$> doubleParser "END:" "VCALENDAR"
+
+-- Always has to parse the VCALENDAR value
+endev :: Parser Char BeginEnd
+endev = End <$> doubleParser "END:" "VEVENT"
+
+-- Has to check for either the Prodid or Calprop
+calp :: Parser Char Calprop
+calp = prodid <|> version 
+
+prodid :: Parser Char Calprop
+prodid = Prodid <$> idParser "PRODID:"
+
+version :: Parser Char Calprop
+version = toVersion <$> idParser "VERSION:"
+        where toVersion a = Version $ a
+
+-- Parser that removes a given prefix from the string
+idParser :: String -> Parser Char String
+idParser p = token p *> identifier
+
+-- Same as the idParser, but now the rest has to be a certain string
+doubleParser :: String -> String -> Parser Char String
+doubleParser p q = token p *> token q
 
 recognizeCalendar :: String -> Maybe Calendar
 recognizeCalendar s = run scanCalendar s >>= run parseCalendar
@@ -237,8 +270,8 @@ recognizeCalendar s = run scanCalendar s >>= run parseCalendar
 -- Exercise 8
 readCalendar :: FilePath -> IO (Maybe Calendar)
 readCalendar path = do
-                    handle <- openFile ReadMode path
-                    _ <- hSetNewlinemode handle noNewlineTranslation
+                    handle <- openFile path ReadMode
+                    _ <- hSetNewlineMode handle noNewlineTranslation
                     content <- hGetContents handle
                     return $ recognizeCalendar content
 
@@ -250,16 +283,49 @@ printCalendar cal = undefined
 
 -- Exercise 10
 countEvents :: Calendar -> Int
-countEvents = undefined
+countEvents (Calendar _ _ _ events _) = counter events
+
+counter :: Events -> Int
+counter (SingleE _) = 1
+counter (MultipleE _ events) = 1 + counter events
 
 findEvents :: DateTime -> Calendar -> [Event]
-findEvents = undefined
+findEvents time (Calendar _ _ _ events _) = filter (find time) events
+
+find :: DateTime -> Event -> Bool
+find time (Event _ props _) | (time >= start && time <= end) = True
+                            | otherwise                      = False
+                            where start = getStartTime props
+                                  end   = getEndTime props
+
+getStartTime :: [Property] -> DateTime
+getStartTime [] = error "Invalid event"
+getStartTime ((Dtstart time):xs) = time
+getStartTime (_:xs) = getStartTime xs
+
+getEndTime :: [Property] -> DateTime
+getEndTime [] = error "Invalid event"
+getEndTime ((Dtend time):xs) = time
+getEndTime (_:xs) = getStartTime xs
 
 checkOverlapping :: Calendar -> Bool
-checkOverlapping = undefined
-
+checkOverlapping (Calendar _ _ _ events _)  | length overlapping > 0 = True
+                                            | otherwise              = False
+                                           where combinations = [(i,j)| i <- events, j <- events, i /= j]
+                                                 overlapping = filter doesOverlap combinations
+-- TODO: isje verwijderen?
+doesOverlap :: (Event, Event) -> Bool
+doesOverlap ((Event _ props1 _), (Event _ props2 _)) | ( (beg1 <= end2) && end1 >= beg2) = True
+                                                     | otherwise                         = False
+                                                    where beg1 = getStartTime props1
+                                                          beg2 = getStartTime props2
+                                                          end1 = getEndTime props1
+                                                          end2 = getEndTime props2 
+ 
 timeSpent :: String -> Calendar -> Int
-timeSpent = undefined
+timeSpent sum (Calendar _ _ _ events _) = length [x | x <- events, x moet de sum hebben]
+
+
 
 -- Exercise 11
 ppMonth :: Year -> Month -> Calendar -> String
