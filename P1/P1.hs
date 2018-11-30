@@ -156,21 +156,29 @@ checkDateTime dt = checkDate (date dt) && checkTime (time dt)
                       checkSecond s = s >= 0 && s <= 59
 
 -- Exercise 6
-data Calendar = Calendar Begin Header Events End
-    deriving (Eq, Ord, Show)
-
-data Header = Header Calprop
+data Calendar = Calendar Begin Calprop Calprop Events End
     deriving (Eq, Ord, Show)
 
 type Text = String
 
 data BeginEnd = VCALENDAR | VEVENT 
     deriving (Eq, Ord, Show)
+
 type Begin = BeginEnd
+instance Show a => Show (Begin a) where
+    show VCALENDAR = "BEGIN:VCALENDAR"
+    show VEVENT    = "BEGIN:VEVENT"
+
 type End = BeginEnd
+instance Show a => Show (End a) where
+    show VCALENDAR = "END:VCALENDAR"
+    show VEVENT    = "END:VEVENT"
     
 data Calprop = Prodid Text | Version Text
     deriving (Eq, Ord, Show)
+instance Show a => Show (Calprop a) where
+    show Prodid t  = "PRODID:" + t
+    show Version t = "VERSION:" + t
 
 data Events = SingleE Event | MultipleE Event Events   
     deriving (Eq, Ord, Show) 
@@ -195,8 +203,10 @@ type Location    = Text
 type Token = String
      --deriving (Eq, Ord, Show)
   
---scanCalendar :: Parser Char [Char]
---scanCalendar = splitByString []
+scanCalendar :: Parser Char [Token]
+scanCalendar = greedy 
+
+scanCrlf :: Parser Char
 
 
 
@@ -222,16 +232,21 @@ parseCalendar :: Parser Token Calendar
 parseCalendar = undefined
 
 recognizeCalendar :: String -> Maybe Calendar
-recognizeCalendar s = error s --run scanCalendar s >>= run parseCalendar
+recognizeCalendar s = run scanCalendar s >>= run parseCalendar
 
 -- Exercise 8
 readCalendar :: FilePath -> IO (Maybe Calendar)
-readCalendar = undefined
+readCalendar path = do
+                    handle <- openFile ReadMode path
+                    _ <- hSetNewlinemode handle noNewlineTranslation
+                    content <- hGetContents handle
+                    return $ recognizeCalendar content
+
 
 -- Exercise 9
 -- DO NOT use a derived Show instance. Your printing style needs to be nicer than that :)
 printCalendar :: Calendar -> String
-printCalendar = undefined
+printCalendar cal = undefined
 
 -- Exercise 10
 countEvents :: Calendar -> Int
