@@ -202,67 +202,189 @@ crlf = "\\r\\n"
 
 
 -- Exercise 7
-data Token = Token {unText :: Text}
+data Token = Tbegincalendar Text | Tprodid Text | Tversion Text | Tbeginevent Text | Tdtstamp DateTime | Tuid Text | Tdtstart DateTime | Tdtend DateTime | Tdescription Text | Tsummary Text | Tlocation Text | TendEvent Text | TendCalendar Text
+     deriving (Eq, Ord, Show)
+type Prefix = Text
+data Suffix = SText Text | SDT DateTime
      deriving (Eq, Ord, Show)
   
+---------------------------LEXING-------------------------------
 scanCalendar :: Parser Char [Token]
-scanCalendar = Token <$> greedy1 (identifier <* idParser "\\r\\n")
-
-parseCalendar :: Parser Token Calendar
-parseCalendar = Calendar <$> begincal <*> calp <*> calp <*> greedy1 event <*> endcal <* eof
-
-event :: Parser Char Event
-event = Event <$> beginev <*> greedy1 prop <*> endev
-
-prop :: Parser Char Property
-prop = Dtstamp <$> parseDateTime <<|> uid <<|> Dtstart <$> parseDateTime <<|> Dtend <$> parseDateTime <<|> description <<|> summary <<|> location
-
-uid :: Parser Char Property
-uid = Uid <$> idParser "UID:"
-
-description :: Parser Char Property
-description = Description <$> idParser "DESCRIPTION:"
-
-summary :: Parser Char Property
-summary = Summary <$> idParser "SUMMARY:"
-
-location :: Parser Char Property
-location = Location <$> idParser "LOCATION:"
+scanCalendar = greedy1 getCalTokens <* eof
+    where getCalTokens = tbegincalendar <|> tprodid <|> tversion <|> getEventTokens <|> tendcalendar
+          getEventTokens = tbeginevent <|> tdtstamp <|> tuid <|> tdtstart <|> tdtend <|> tdescription <|> tsummary <|> tlocation <|> tendevent
 
 -- Always has to parse the VCALENDAR value
-begincal :: Parser Char BeginEnd
-begincal = Begin <$> doubleParser "BEGIN:" "VCALENDAR"
+tbegincalendar :: Parser Char Token
+tbegincalendar = Tbegincalendar <$> (token "BEGIN:" *> token "VCALENDAR")
+
+tprodid :: Parser Char Token
+tprodid = Tprodid <$> (token "PRODID:" *> identifier)
+
+tversion :: Parser Char Token
+tversion = Tversion <$> (token "VERSION:" *> identifier)
+
+-- Always has to parse the VCALENDAR value
+tendcalendar :: Parser Char Token
+tendcalendar = TendCalendar <$> (token "END:" *> token "VCALENDAR")
 
 -- Always has to parse the VEVENT value
-beginev :: Parser Char BeginEnd
-beginev = Begin <$> doubleParser "BEGIN:" "VEVENT"
+tbeginevent :: Parser Char Token
+tbeginevent = Tbeginevent <$> (token "BEGIN:" *> token "VEVENT")
+
+tdtstamp :: Parser Char Token
+tdtstamp = Tdtstamp <$> (token "DTSTAMP:" *> parseDateTime)
+
+tuid :: Parser Char Token
+tuid = Tuid <$> (token "UID:" *> identifier)
+
+tdtstart :: Parser Char Token
+tdtstart = Tdtstart <$> (token "DTSTART:" *> parseDateTime)
+
+tdtend :: Parser Char Token
+tdtend = Tdtend <$> (token "DTEND:" *> parseDateTime)
+
+tdescription :: Parser Char Token
+tdescription = Tdescription <$> (token "DESCRIPTION:" *> identifier)
+
+tsummary :: Parser Char Token
+tsummary = Tsummary <$> (token "SUMMARY:" *> identifier)
+
+tlocation :: Parser Char Token
+tlocation = Tlocation <$> (token "LOCATION:" *> identifier)
 
 -- Always has to parse the VCALENDAR value
-endcal :: Parser Char BeginEnd
-endcal = End <$> doubleParser "END:" "VCALENDAR"
+tendevent :: Parser Char Token
+tendevent = TendEvent <$> (token "END:" *> token "VEVENT")
 
--- Always has to parse the VCALENDAR value
-endev :: Parser Char BeginEnd
-endev = End <$> doubleParser "END:" "VEVENT"
+---------------------------PARSING------------------------------
+parseCalendar :: Parser Token Calendar
+parseCalendar = Calendar <$> beginCalendar <*> prodid <*> version <*> many parseEvent <*> endCalendar
 
--- Has to check for either the Prodid or Calprop
-calp :: Parser Char Calprop
-calp = prodid <|> version 
+parseEvent :: Parser Token Event
+parseEvent = Event <$> beginEvent <*> many parseProps <*> endEvent
 
-prodid :: Parser Char Calprop
-prodid = Prodid <$> idParser "PRODID:"
+parseProps :: Parser Token Property
+parseProps = dtstamp <|> uid <|> dtstart <|> dtend <|> description <|> summary <|> location
 
-version :: Parser Char Calprop
-version = toVersion <$> idParser "VERSION:"
-        where toVersion a = Version $ a
 
--- Parser that removes a given prefix from the string
-idParser :: String -> Parser Char String
-idParser p = token p *> identifier
+-- TODO: Hier een region maken voor obvious reasons
+beginCalendar :: Parser Token BeginEnd
+beginCalendar = fromBegincalendar <$> satisfy isBegincalendar
+isBegincalendar :: Token -> Bool
+isBegincalendar (Tbegincalendar _) = True
+isBegincalendar _ = False
+fromBegincalendar :: Token -> BeginEnd
+fromBegincalendar (Tbegincalendar x) = Begin x
+fromBegincalendar _ = error "Hoort hier niet te komen"
 
--- Same as the idParser, but now the rest has to be a certain string
-doubleParser :: String -> String -> Parser Char String
-doubleParser p q = token p *> token q
+prodid :: Parser Token Calprop
+prodid = fromProdid <$> satisfy isProdid
+isProdid :: Token -> Bool
+isProdid (Tprodid _) = True
+isProdid _ = False
+fromProdid :: Token -> Calprop
+fromProdid (Tprodid x) = Prodid x
+fromProdid _ = error "Hoort hier niet te komen"
+
+version :: Parser Token Calprop
+version = fromVersion <$> satisfy isVersion
+isVersion :: Token -> Bool
+isVersion (Tversion _) = True
+isVersion _ = False
+fromVersion :: Token -> Calprop
+fromVersion (Tversion x) = Version x
+fromVersion _ = error "Hoort hier niet te komen"
+
+endCalendar :: Parser Token BeginEnd
+endCalendar = fromEndcalendar <$> satisfy isEndcalendar
+isEndcalendar :: Token -> Bool
+isEndcalendar (TendCalendar _) = True
+isEndcalendar _ = False
+fromEndcalendar :: Token -> BeginEnd
+fromEndcalendar (TendCalendar x) = End x
+fromEndcalendar _ = error "Hoort hier niet te komen"
+
+beginEvent :: Parser Token BeginEnd
+beginEvent = fromBeginevent <$> satisfy isBeginevent
+isBeginevent :: Token -> Bool
+isBeginevent (Tbeginevent _) = True
+isBeginevent _ = False
+fromBeginevent :: Token -> BeginEnd
+fromBeginevent (Tbeginevent x) = Begin x
+fromBeginevent _ = error "Hoort hier niet te komen"
+
+dtstamp :: Parser Token Property
+dtstamp = fromDtstamp <$> satisfy isDtstamp
+isDtstamp :: Token -> Bool
+isDtstamp (Tdtstamp _) = True
+isDtstamp _ = False
+fromDtstamp :: Token -> Property
+fromDtstamp (Tdtstamp x) = Dtstamp x
+fromDtstamp _ = error "Hoort hier niet te komen"
+
+uid :: Parser Token Property
+uid = fromUid <$> satisfy isUid
+isUid :: Token -> Bool
+isUid (Tuid _) = True
+isUid _ = False
+fromUid :: Token -> Property
+fromUid (Tuid x) = Uid x
+fromUid _ = error "Hoort hier niet te komen"
+
+dtstart :: Parser Token Property
+dtstart = fromDtstart <$> satisfy isDtstart
+isDtstart :: Token -> Bool
+isDtstart (Tdtstart _) = True
+isDtstart _ = False
+fromDtstart :: Token -> Property
+fromDtstart (Tdtstart x) = Dtstart x
+fromDtstart _ = error "Hoort hier niet te komen"
+
+dtend :: Parser Token Property
+dtend = fromDtend <$> satisfy isDtend
+isDtend :: Token -> Bool
+isDtend (Tdtend _) = True
+isDtend _ = False
+fromDtend :: Token -> Property
+fromDtend (Tdtend x) = Dtend x
+fromDtend _ = error "Hoort hier niet te komen"
+
+description :: Parser Token Property
+description = fromDecription <$> satisfy isDescription
+isDescription :: Token -> Bool
+isDescription (Tdescription _) = True
+isDescription _ = False
+fromDecription :: Token -> Property
+fromDecription (Tdescription x) = Description x
+fromDecription _ = error "Hoort hier niet te komen"
+
+summary :: Parser Token Property
+summary = fromSummary <$> satisfy isSummary
+isSummary :: Token -> Bool
+isSummary (Tsummary _) = True
+isSummary _ = False
+fromSummary :: Token -> Property
+fromSummary (Tsummary x) = Summary x
+fromSummary _ = error "Hoort hier niet te komen"
+
+location :: Parser Token Property
+location = fromLocation <$> satisfy isLocation
+isLocation :: Token -> Bool
+isLocation (Tlocation _) = True
+isLocation _ = False
+fromLocation :: Token -> Property
+fromLocation (Tlocation x) = Location x
+fromLocation _ = error "Hoort hier niet te komen"
+
+endEvent :: Parser Token BeginEnd
+endEvent = fromEndcalendar <$> satisfy isEndcalendar
+isEndevent :: Token -> Bool
+isEndevent (TendEvent _) = True
+isEndevent _ = False
+fromEndevent :: Token -> BeginEnd
+fromEndevent (TendEvent x) = End x
+fromEndevent _ = error "Hoort hier niet te komen"
 
 recognizeCalendar :: String -> Maybe Calendar
 recognizeCalendar s = run scanCalendar s >>= run parseCalendar
@@ -323,12 +445,7 @@ doesOverlap ((Event _ props1 _), (Event _ props2 _)) | ( (beg1 <= end2) && end1 
                                                           beg2 = getStartTime props2
                                                           end1 = getEndTime props1
                                                           end2 = getEndTime props2 
- 
-timeSpent :: String -> Calendar -> Int
-timeSpent summary (Calendar _ _ _ events _) = --sum [x | x <- eventTime, x moet de summary hebben]
-                                            where props = map 
 
-get[Event] -> [[Property]]
 
 matchSummary :: String -> [Property] -> Bool
 matchSummary summary props = (getSummary props) == summary
