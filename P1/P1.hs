@@ -1,8 +1,9 @@
 import ParseLib.Abstract
 import System.Environment
 import System.IO
-import Prelude hiding ((<*),(*>))
-import Data.List.Split
+import Prelude hiding ((<*),(*>), (<>), sequence)
+import Data.List hiding (find)
+import Text.PrettyPrint
 
 -- Starting Framework
 
@@ -157,7 +158,7 @@ checkDateTime dt = checkDate (date dt) && checkTime (time dt)
                       checkSecond s = s >= 0 && s <= 59
 
 -- Exercise 6
-data Calendar = Calendar BeginEnd Calprop Calprop [Event] BeginEnd
+data Calendar = Calendar BeginEnd [Calprop] [Event] BeginEnd
     deriving (Eq, Ord, Show)
 
 type Text = String
@@ -193,9 +194,9 @@ instance Show Property where
     show (Uid t)         = "UID:" ++ t
     show (Dtstart dt)    = "DTSTART:" ++ show dt
     show (Dtend dt)      = "DTEND:" ++ show dt
-    show (Description t) = "DESCRIPTION:" + t
-    show (Summary t)     = "SUMMARY" + t
-    show (Location t)    = "LOCATION" + t
+    show (Description t) = "DESCRIPTION:" ++ t
+    show (Summary t)     = "SUMMARY" ++ t
+    show (Location t)    = "LOCATION" ++ t
 
 crlf :: String
 crlf = "\\r\\n"
@@ -259,16 +260,24 @@ tendevent = TendEvent <$> (token "END:" *> token "VEVENT")
 
 ---------------------------PARSING------------------------------
 parseCalendar :: Parser Token Calendar
-parseCalendar = Calendar <$> beginCalendar <*> prodid <*> version <*> many parseEvent <*> endCalendar
+parseCalendar = Calendar <$> beginCalendar <*> checkProps <*> many parseEvent <*> endCalendar <* eof
+              where checkProps = choice $ map sequence calprops
 
 parseEvent :: Parser Token Event
-parseEvent = Event <$> beginEvent <*> many parseProps <*> endEvent
+parseEvent = Event <$> beginEvent <*> parseProps <*> endEvent
 
-parseProps :: Parser Token Property
-parseProps = dtstamp <|> uid <|> dtstart <|> dtend <|> description <|> summary <|> location
+parseProps :: Parser Token [Property]
+parseProps = choice $ map sequence withoutopt
 
+calprops :: [[Parser Token Calprop]]
+calprops = [[prodid, version],[version, prodid]]
 
--- TODO: Hier een region maken voor obvious reasons
+withoutopt :: [[Parser Token Property]]
+withoutopt = foldr (++) [] $ map permutations $ map (++ perms) subs
+           where perms = [dtstamp,uid,dtstart,dtend]
+                 subs  = subsequences [description, summary, location]
+
+-- Cover your eyes please, a lot of duplicated code coming right up
 beginCalendar :: Parser Token BeginEnd
 beginCalendar = fromBegincalendar <$> satisfy isBegincalendar
 isBegincalendar :: Token -> Bool
@@ -401,7 +410,7 @@ readCalendar path = do
 -- Exercise 9
 -- DO NOT use a derived Show instance. Your printing style needs to be nicer than that :)
 printCalendar :: Calendar -> String
-printCalendar (Calendar begin prop1 prop2 events end) = show begin ++ show prop1 ++ show prop2 ++ foldr (++) [] (map printEvent events) ++ show end
+printCalendar (Calendar begin props events end) = show begin ++ foldr (++) [] (map show props) ++ foldr (++) [] (map printEvent events) ++ show end
 
 printEvent :: Event -> String
 printEvent (Event begin props end) = show begin ++ foldr (++) [] (map printProp props) ++ show end
@@ -411,10 +420,10 @@ printProp p = show p ++ crlf
 
 -- Exercise 10
 countEvents :: Calendar -> Int
-countEvents (Calendar _ _ _ events _) = length events
+countEvents (Calendar _ _ events _) = length events
 
 findEvents :: DateTime -> Calendar -> [Event]
-findEvents time (Calendar _ _ _ events _) = filter (find time) events
+findEvents time (Calendar _ _ events _) = filter (find time) events
 
 find :: DateTime -> Event -> Bool
 find time (Event _ props _) | (time >= start && time <= end) = True
@@ -433,7 +442,7 @@ getEndTime ((Dtend time):xs) = time
 getEndTime (_:xs) = getStartTime xs
 
 checkOverlapping :: Calendar -> Bool
-checkOverlapping (Calendar _ _ _ events _)  | length overlapping > 0 = True
+checkOverlapping (Calendar _ _ events _)  | length overlapping > 0 = True
                                             | otherwise              = False
                                            where combinations = [(i,j)| i <- events, j <- events, i /= j]
                                                  overlapping = filter doesOverlap combinations
@@ -446,6 +455,24 @@ doesOverlap ((Event _ props1 _), (Event _ props2 _)) | ( (beg1 <= end2) && end1 
                                                           end1 = getEndTime props1
                                                           end2 = getEndTime props2 
 
+timeSpent :: String -> Calendar -> Int
+timeSpent summary (Calendar _ _ events _) = sum [eventTime x | x <- matchingEvents]
+                                            where matchingEvents = filterEventsThatMatch (zipEventsWithBools events  (propsMatchSumm summary events))
+
+filterEventsThatMatch :: [(Event, Bool)] -> [Event]
+filterEventsThatMatch [] = []
+filterEventsThatMatch [(x, True), xs] = x : filterEventsThatMatch [xs]
+filterEventsThatMatch [(x, False), xs] = filterEventsThatMatch [xs]
+
+zipEventsWithBools :: [Event] -> [Bool] -> [(Event, Bool)]
+zipEventsWithBools events bools = zip events bools
+
+propsMatchSumm :: String -> [Event] -> [Bool]
+propsMatchSumm summary events = map (matchSummary summary) (getProps events)
+
+getProps :: [Event] -> [[Property]]
+getProps [] = []
+getProps ((Event _ props _):xs) = props : getProps xs
 
 matchSummary :: String -> [Property] -> Bool
 matchSummary summary props = (getSummary props) == summary
@@ -463,10 +490,92 @@ eventTime (Event _ props _) = timeDifference beg end
 -- Not sure of deze klopt qua minuten aftrekken van elkaar...
 timeDifference :: Time -> Time -> Int
 timeDifference t1 t2 = hours * 60 + mins
-                    where hours = hour (t2 - t1)
-                          mins  = minutes (t2 - t1)
+                    where hours = unHour(hour t2) - unHour(hour t1)
+                          mins  = unMinute(minute t2) - unMinute(minute t2)
 
 
 -- Exercise 11
 ppMonth :: Year -> Month -> Calendar -> String
-ppMonth = undefined
+ppMonth y m (Calendar _ _ events _) = render pcalendar
+                                    where daysCount = getAmountOfDays y m
+                                          pcalendar = foldr (++crlf) printDayLine getWeeks
+                                          events    = filterEvents y m events
+
+                                          --getWeeks = 
+
+--getWeeks :: Int -> 
+ --                                           case daysCount of 
+  --                                                   28 -> --doe 4x week maken
+   --                                                   _  -> --doe 5x week maken
+
+printDaynumbers :: Int -> Int -> Doc
+printDaynumbers row maxDays = foldr (<>) Text.PrettyPrint.empty [printDayLine x | x <- [(1 + 7*row) .. (7 + 7*row)], x <= maxDays]
+
+getRowEvents :: Int -> [Event] -> [Event]
+getRowEvents row events = filter (\x -> func x) events 
+                        where func y = getDay y > (row * 7 - 7) && getDay y <= (row * 7)
+
+getDay :: Event -> Int
+getDay (Event _ props _) = unDay $ day $ date $ findstamp props
+
+findstamp :: [Property] -> DateTime
+findstamp [] = error "Dtstamp should exist"
+findstamp ((Dtstamp x): xs) = x
+findstamp (_:xs)            = findstamp xs
+
+
+
+getAmountOfDays :: Year -> Month -> Int
+getAmountOfDays y 2 | y `mod` 4 == 0 = 29
+                    | otherwise      = 28                        
+getAmountOfDays _ m | m == 1 || m == 3 || m == 5 || m == 7 || m == 8 || m == 10 || m == 12 = 31
+                    | otherwise                                                            = 30
+
+filterEvents :: Year -> Month -> [Event] -> [Event]
+filterEvents y m events = filter (\x -> years x == (unYear y) && (months x == (unMonth m))) events
+                      where years (Event _ p _) = unYear $ year $ date $ findstamp p
+                            months (Event _ p _)= unMonth $ month $ date $ findstamp p
+
+sortByDay :: [Event] -> Int -> [[Event]]
+sortByDay events dayCount = [x | x <- events, y <- [1 .. dayCount], getDay x == y]
+
+-- 7 blokken breed
+-- 5 blokken hoog 
+-- dagnummer per blok
+-- tijden per blok
+-- *** Printing functions *** --
+
+
+printDayLine :: Int -> String
+printDayLine 0 = verticalLine <> printSpaces 15 -- Empty calendar space, default value is 0
+printDayLine num = verticalLine <> int num <> printSpaces 14
+
+-- Print the event in the following format: "|20:00-21:00    "
+printEventLine :: Event -> Doc
+printEventLine (Event _ props _) = verticalLine <> text startTime <> hyphen <> text endTime <> printSpaces 4
+                            where startTime = printDateTime (getStartTime props)
+                                  endTime = printDateTime (getEndTime props)
+
+-- Print an "empty" line in a calendar day                                  
+printEventSpace :: Doc
+printEventSpace = verticalLine <> printSpaces 15
+
+printHorizontalDivider :: Doc
+printHorizontalDivider = hyphens <> plus <> hyphens <> plus <> hyphens <> plus <> 
+                         hyphens <> plus <> hyphens <> plus <> hyphens <> plus <> hyphens
+                     where hyphens = printHyphens 15
+
+printSpaces :: Int -> Doc
+printSpaces count = text (concat $ replicate count " ")
+
+printHyphens :: Int -> Doc
+printHyphens count = text (concat $ replicate count "-")
+
+verticalLine :: Doc 
+verticalLine = text "|"
+
+hyphen :: Doc 
+hyphen = text "-"
+
+plus :: Doc 
+plus = text "+"
