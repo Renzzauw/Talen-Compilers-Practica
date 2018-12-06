@@ -1,10 +1,9 @@
 import ParseLib.Abstract
 import System.Environment
 import System.IO
-import Prelude hiding ((<*),(*>), (<>), sequence)
+import Prelude hiding ((<*),(*>), (++), sequence)
 import Data.List hiding (find)
-import Text.PrettyPrint
-
+import Data.Maybe
 -- Starting Framework
 
 -- | "Target" datatype for the DateTime parser, i.e, the parser should produce elements of this type.
@@ -58,6 +57,12 @@ mainCalendar = do
     file:_ <- getArgs
     res <- readCalendar file
     putStrLn $ maybe "Calendar parsing error" (ppMonth (Year 2012) (Month 11)) res
+
+-- Debug function to see whether the calendar parsing and printing works
+testCalendar :: FilePath -> IO ()
+testCalendar p = do
+                 data <- readCalendar p 
+                 putStrLn $ ppMonth (Year 2012) (Month 11)
 
 -- Exercise 1
 parseDateTime :: Parser Char DateTime
@@ -439,7 +444,7 @@ getStartTime (_:xs) = getStartTime xs
 getEndTime :: [Property] -> DateTime
 getEndTime [] = error "Invalid event"
 getEndTime ((Dtend time):xs) = time
-getEndTime (_:xs) = getStartTime xs
+getEndTime (_:xs) = getEndTime xs
 
 checkOverlapping :: Calendar -> Bool
 checkOverlapping (Calendar _ _ events _)  | length overlapping > 0 = True
@@ -496,27 +501,40 @@ timeDifference t1 t2 = hours * 60 + mins
 
 -- Exercise 11
 ppMonth :: Year -> Month -> Calendar -> String
-ppMonth y m (Calendar _ _ events _) = render pcalendar
-                                    where daysCount = getAmountOfDays y m
-                                          pcalendar = foldr (++crlf) printDayLine getWeeks
-                                          events    = filterEvents y m events
+ppMonth y m (Calendar _ _ events _) = getWeeks daysCount validEvents
+                                    where daysCount      = getAmountOfDays y m
+                                          validEvents    = sortByDay (filterEvents y m events) daysCount [[]]
 
-                                          --getWeeks = 
+getWeeks :: Int -> [[Event]] -> String
+getWeeks 28 events = divider ++ getWeek (1,7) events ++ divider ++ getWeek (8,14) events ++ divider ++ getWeek (15,21) events ++ divider ++ getWeek (22,28) events ++ divider
+getWeeks d events  = divider ++ getWeek (1,7) events ++ divider ++ getWeek (8,14) events ++ divider ++ getWeek (15,21) events ++ divider ++ getWeek (22,28) events ++ divider ++ getWeek (29, d) events ++ divider
 
---getWeeks :: Int -> 
- --                                           case daysCount of 
-  --                                                   28 -> --doe 4x week maken
-   --                                                   _  -> --doe 5x week maken
+getWeek :: (Int, Int) -> [[Event]] -> String
+getWeek (low, high) events = [y | x <- [low .. high], y <- (foldr (++) [] (map (\z -> z !! x) getDays)) ++ crlf]
+                           where rowHeight = maximum $ map length events
+                                 getDays = [getDay y rowHeight (events !! y) | y <- [low .. high]]
 
-printDaynumbers :: Int -> Int -> Doc
-printDaynumbers row maxDays = foldr (<>) Text.PrettyPrint.empty [printDayLine x | x <- [(1 + 7*row) .. (7 + 7*row)], x <= maxDays]
+getDay :: Int -> Int -> [Event] -> [String]
+getDay day height events = printDayNumber : printEvents
+                         where printDayNumber = case day < 10 of
+                                                True -> "| " ++ show day ++ replicate 13 ' ' ++ "|"
+                                                _    -> "| " ++ show day ++ replicate 12 ' ' ++ "|"
+                               printEvents = map printEvent events ++ replicate (height - length events) emptyLine
+                               printEvent e = " " ++ getStart e ++ " - " ++ getEnd e ++ " " 
+                               getStart = (\x -> show (unHour(hour (time (getStartTime (z x))))) ++ "-" ++ show (unMinute(minute (time (getStartTime (z x))))))
+                               getEnd = (\x -> show (unHour(hour (time (getEndTime (z x))))) ++ "-" ++ show (unMinute(minute (time (getEndTime (z x))))))
+                               emptyLine = "|" ++ replicate 15 ' ' ++ "|"
+                               z = getEventProps
+
+getEventProps :: Event -> [Property]
+getEventProps (Event _ props _) = props
 
 getRowEvents :: Int -> [Event] -> [Event]
 getRowEvents row events = filter (\x -> func x) events 
-                        where func y = getDay y > (row * 7 - 7) && getDay y <= (row * 7)
+                        where func y = getDayFromEvent y > (row * 7 - 7) && getDayFromEvent y <= (row * 7)
 
-getDay :: Event -> Int
-getDay (Event _ props _) = unDay $ day $ date $ findstamp props
+getDayFromEvent :: Event -> Int
+getDayFromEvent (Event _ props _) = unDay $ day $ date $ findstamp props
 
 findstamp :: [Property] -> DateTime
 findstamp [] = error "Dtstamp should exist"
@@ -526,56 +544,22 @@ findstamp (_:xs)            = findstamp xs
 
 
 getAmountOfDays :: Year -> Month -> Int
-getAmountOfDays y 2 | y `mod` 4 == 0 = 29
-                    | otherwise      = 28                        
-getAmountOfDays _ m | m == 1 || m == 3 || m == 5 || m == 7 || m == 8 || m == 10 || m == 12 = 31
-                    | otherwise                                                            = 30
+getAmountOfDays y (Month 2)     | (unYear y) `mod` 4 == 0 = 29
+                                | otherwise      = 28                        
+getAmountOfDays _ month         | m == 1 || m == 3 || m == 5 || m == 7 || m == 8 || m == 10 || m == 12 = 31
+                                | otherwise                                                            = 30
+                                where m = unMonth month
 
 filterEvents :: Year -> Month -> [Event] -> [Event]
 filterEvents y m events = filter (\x -> years x == (unYear y) && (months x == (unMonth m))) events
                       where years (Event _ p _) = unYear $ year $ date $ findstamp p
                             months (Event _ p _)= unMonth $ month $ date $ findstamp p
 
-sortByDay :: [Event] -> Int -> [[Event]]
-sortByDay events dayCount = [x | x <- events, y <- [1 .. dayCount], getDay x == y]
+sortByDay :: [Event] -> Int -> [[Event]] -> [[Event]]
+sortByDay events 0 acc          = acc
+sortByDay events currentDay acc = sortByDay events (currentDay - 1) $ checkIfDay : acc
+                                where checkIfDay = filter (\x -> getDayFromEvent x == currentDay) events
 
--- 7 blokken breed
--- 5 blokken hoog 
--- dagnummer per blok
--- tijden per blok
--- *** Printing functions *** --
-
-
-printDayLine :: Int -> String
-printDayLine 0 = verticalLine <> printSpaces 15 -- Empty calendar space, default value is 0
-printDayLine num = verticalLine <> int num <> printSpaces 14
-
--- Print the event in the following format: "|20:00-21:00    "
-printEventLine :: Event -> Doc
-printEventLine (Event _ props _) = verticalLine <> text startTime <> hyphen <> text endTime <> printSpaces 4
-                            where startTime = printDateTime (getStartTime props)
-                                  endTime = printDateTime (getEndTime props)
-
--- Print an "empty" line in a calendar day                                  
-printEventSpace :: Doc
-printEventSpace = verticalLine <> printSpaces 15
-
-printHorizontalDivider :: Doc
-printHorizontalDivider = hyphens <> plus <> hyphens <> plus <> hyphens <> plus <> 
-                         hyphens <> plus <> hyphens <> plus <> hyphens <> plus <> hyphens
-                     where hyphens = printHyphens 15
-
-printSpaces :: Int -> Doc
-printSpaces count = text (concat $ replicate count " ")
-
-printHyphens :: Int -> Doc
-printHyphens count = text (concat $ replicate count "-")
-
-verticalLine :: Doc 
-verticalLine = text "|"
-
-hyphen :: Doc 
-hyphen = text "-"
-
-plus :: Doc 
-plus = text "+"
+divider :: String
+divider = "+" ++ (concat $ replicate 7 hyphensplus) ++ crlf
+        where hyphensplus = replicate 15 '-' ++ "+"
