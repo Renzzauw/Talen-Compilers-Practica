@@ -4,6 +4,7 @@ import System.IO
 import Prelude hiding ((<*),(*>), (++), sequence)
 import Data.List hiding (find)
 import Data.Maybe
+import qualified Data.Time as DT
 -- Starting Framework
 
 -- | "Target" datatype for the DateTime parser, i.e, the parser should produce elements of this type.
@@ -61,8 +62,8 @@ mainCalendar = do
 -- Debug function to see whether the calendar parsing and printing works
 testCalendar :: FilePath -> IO ()
 testCalendar p = do
-                 data <- readCalendar p 
-                 putStrLn $ ppMonth (Year 2012) (Month 11)
+                res <- readCalendar p
+                putStrLn $ maybe "Calendar parsing error" (ppMonth (Year 2012) (Month 11)) res
 
 -- Exercise 1
 parseDateTime :: Parser Char DateTime
@@ -200,11 +201,11 @@ instance Show Property where
     show (Dtstart dt)    = "DTSTART:" ++ show dt
     show (Dtend dt)      = "DTEND:" ++ show dt
     show (Description t) = "DESCRIPTION:" ++ t
-    show (Summary t)     = "SUMMARY" ++ t
-    show (Location t)    = "LOCATION" ++ t
+    show (Summary t)     = "SUMMARY:" ++ t
+    show (Location t)    = "LOCATION:" ++ t
 
 crlf :: String
-crlf = "\\r\\n"
+crlf = "\r\n"
 
 
 -- Exercise 7
@@ -216,52 +217,55 @@ data Suffix = SText Text | SDT DateTime
   
 ---------------------------LEXING-------------------------------
 scanCalendar :: Parser Char [Token]
-scanCalendar = greedy1 getCalTokens <* eof
-    where getCalTokens = tbegincalendar <|> tprodid <|> tversion <|> getEventTokens <|> tendcalendar
-          getEventTokens = tbeginevent <|> tdtstamp <|> tuid <|> tdtstart <|> tdtend <|> tdescription <|> tsummary <|> tlocation <|> tendevent
-
+scanCalendar = greedy1 anyToken <* eof
+             where anyToken = tbegincalendar <|> tprodid <|> tversion <|> tendcalendar <|> tbeginevent <|> tdtstamp <|> tuid <|> tdtstart <|> tdtend <|> tdescription <|> tsummary <|> tlocation <|> tendevent
+                           
 -- Always has to parse the VCALENDAR value
 tbegincalendar :: Parser Char Token
-tbegincalendar = Tbegincalendar <$> (token "BEGIN:" *> token "VCALENDAR")
+tbegincalendar = Tbegincalendar <$> (token "BEGIN:" *> token ("VCALENDAR") <* token crlf)
 
 tprodid :: Parser Char Token
-tprodid = Tprodid <$> (token "PRODID:" *> identifier)
+tprodid = Tprodid <$> (token "PRODID:" *> parseString)
+
+parseString :: Parser Char String
+parseString = ((const []) <$> token "\r\n") <<|>  (:) <$> anySymbol <*> parseString
+
 
 tversion :: Parser Char Token
-tversion = Tversion <$> (token "VERSION:" *> identifier)
+tversion = Tversion <$> (token "VERSION:" *> parseString)
 
 -- Always has to parse the VCALENDAR value
 tendcalendar :: Parser Char Token
-tendcalendar = TendCalendar <$> (token "END:" *> token "VCALENDAR")
+tendcalendar = TendCalendar <$> (token "END:" *> token "VCALENDAR" <* token crlf)
 
 -- Always has to parse the VEVENT value
 tbeginevent :: Parser Char Token
-tbeginevent = Tbeginevent <$> (token "BEGIN:" *> token "VEVENT")
+tbeginevent = Tbeginevent <$> (token "BEGIN:" *> token "VEVENT" <* token crlf)
 
 tdtstamp :: Parser Char Token
-tdtstamp = Tdtstamp <$> (token "DTSTAMP:" *> parseDateTime)
+tdtstamp = Tdtstamp <$> (token "DTSTAMP:" *> parseDateTime <* token crlf)
 
 tuid :: Parser Char Token
-tuid = Tuid <$> (token "UID:" *> identifier)
+tuid = Tuid <$> (token "UID:" *> parseString)
 
 tdtstart :: Parser Char Token
-tdtstart = Tdtstart <$> (token "DTSTART:" *> parseDateTime)
+tdtstart = Tdtstart <$> (token "DTSTART:" *> parseDateTime <* token crlf)
 
 tdtend :: Parser Char Token
-tdtend = Tdtend <$> (token "DTEND:" *> parseDateTime)
+tdtend = Tdtend <$> (token "DTEND:" *> parseDateTime <* token crlf)
 
 tdescription :: Parser Char Token
-tdescription = Tdescription <$> (token "DESCRIPTION:" *> identifier)
+tdescription = Tdescription <$> (token "DESCRIPTION:" *> parseString)
 
 tsummary :: Parser Char Token
-tsummary = Tsummary <$> (token "SUMMARY:" *> identifier)
+tsummary = Tsummary <$> (token "SUMMARY:" *> parseString)
 
 tlocation :: Parser Char Token
-tlocation = Tlocation <$> (token "LOCATION:" *> identifier)
+tlocation = Tlocation <$> (token "LOCATION:" *> parseString)
 
 -- Always has to parse the VCALENDAR value
 tendevent :: Parser Char Token
-tendevent = TendEvent <$> (token "END:" *> token "VEVENT")
+tendevent = TendEvent <$> (token "END:" *> token "VEVENT" <* token crlf)
 
 ---------------------------PARSING------------------------------
 parseCalendar :: Parser Token Calendar
@@ -392,7 +396,7 @@ fromLocation (Tlocation x) = Location x
 fromLocation _ = error "Hoort hier niet te komen"
 
 endEvent :: Parser Token BeginEnd
-endEvent = fromEndcalendar <$> satisfy isEndcalendar
+endEvent = fromEndevent <$> satisfy isEndevent
 isEndevent :: Token -> Bool
 isEndevent (TendEvent _) = True
 isEndevent _ = False
@@ -410,6 +414,13 @@ readCalendar path = do
                     _ <- hSetNewlineMode handle noNewlineTranslation
                     content <- hGetContents handle
                     return $ recognizeCalendar content
+
+getInput :: FilePath -> IO String
+getInput p = do
+         handle <- openFile p ReadMode
+         _ <- hSetNewlineMode handle noNewlineTranslation
+         content <- hGetContents handle
+         return content
 
 
 -- Exercise 9
@@ -431,8 +442,8 @@ findEvents :: DateTime -> Calendar -> [Event]
 findEvents time (Calendar _ _ events _) = filter (find time) events
 
 find :: DateTime -> Event -> Bool
-find time (Event _ props _) | (time >= start && time <= end) = True
-                            | otherwise                      = False
+find time (Event _ props _) | (time >= start && time < end) = True
+                            | otherwise                     = False
                             where start = getStartTime props
                                   end   = getEndTime props
 
@@ -451,7 +462,7 @@ checkOverlapping (Calendar _ _ events _)  | length overlapping > 0 = True
                                             | otherwise              = False
                                            where combinations = [(i,j)| i <- events, j <- events, i /= j]
                                                  overlapping = filter doesOverlap combinations
--- TODO: isje verwijderen?
+
 doesOverlap :: (Event, Event) -> Bool
 doesOverlap ((Event _ props1 _), (Event _ props2 _)) | ( (beg1 <= end2) && end1 >= beg2) = True
                                                      | otherwise                         = False
@@ -463,6 +474,13 @@ doesOverlap ((Event _ props1 _), (Event _ props2 _)) | ( (beg1 <= end2) && end1 
 timeSpent :: String -> Calendar -> Int
 timeSpent summary (Calendar _ _ events _) = sum [eventTime x | x <- matchingEvents]
                                             where matchingEvents = filterEventsThatMatch (zipEventsWithBools events  (propsMatchSumm summary events))
+
+---findOverlappingEvents :: [Event] -> [[Event]]
+--findOverlappingEvents []         = [[]]
+--findOverlappingEvents events@(x:xs:xss) = [(a:b)| a <- events, b <- events, b /= a, (doesOverlap a b) == True]
+
+-- | doesOverlap (x, xs) = [[x:xs]] : [findOvxerlappingEvents(xs:xss)]
+                            -- | otherwise           = [[x], [xs]] : [findOverlappingEvents(xs:xss)]
 
 filterEventsThatMatch :: [(Event, Bool)] -> [Event]
 filterEventsThatMatch [] = []
@@ -489,16 +507,47 @@ getSummary (_:xs) = getSummary xs
 
 eventTime :: Event -> Int
 eventTime (Event _ props _) = timeDifference beg end
-                        where beg   = time (getStartTime props)
-                              end   = time (getEndTime props)
+                        where beg   = getStartTime props
+                              end   = getEndTime props
 
--- Not sure of deze klopt qua minuten aftrekken van elkaar...
-timeDifference :: Time -> Time -> Int
-timeDifference t1 t2 = hours * 60 + mins
-                    where hours = unHour(hour t2) - unHour(hour t1)
-                          mins  = unMinute(minute t2) - unMinute(minute t2)
+timeDifference :: DateTime -> DateTime -> Int
+timeDifference t1 t2 = diffInMins + 60 * (hour2 - hour1) + (min2 - min1)
+                    where dtTup1     = dayTimeConversion t1
+                          dtTup2     = dayTimeConversion t2 
+                          hour1      = unHour $ hour $ time $ t1
+                          hour2      = unHour $ hour $ time $ t2
+                          min1       = unMinute $ minute $ time $ t1
+                          min2       = unMinute $ minute $ time $ t2
+                          diff       = fromIntegral (DT.diffDays dtTup2 dtTup1)
+                          diffInMins = diff * 1440
+                
+                        
+                        {-total1 = min1 + hour1 * 60 + day1 * 1440 + month1 * (minsInAMonth month1) + year1 * (minsInAYear year1)
+                        total2 = min2 + hour2 * 60 + day2 * 1440 + month2 * (minsInAMonth month2) + year2 * (minsInAYear year2)
+                        year1  = unYear $ year $ date $ t1
+                        year2  = unYear $ year $ date $ t2
+                        month1 = unMonth $ month $ date $ t1
+                        month2 = unMonth $ month $ date $ t2
+                        day1   = unDay $ day $ date $ t1
+                        day2   = unDay $ day $ date $ t2
+                        hour1  = unHour $ hour $ time $ t1
+                        hour2  = unHour $ hour $ time $ t2
+                        min1   = unMinute $ minute $ time $ t1
+                        min2   = unMinute $ minute $ time $ t2
+                        -}
 
+dayTimeConversion :: DateTime -> DT.Day         
+dayTimeConversion dt = newDay
+                    where yr  = unYear $ year $ date $ dt
+                          mnt = unMonth $ month $ date $ dt
+                          dy   = unDay $ day $ date $ dt
+                          newDay = DT.fromGregorian (toInteger yr) mnt dy
 
+minsInAYear :: Int -> Int
+minsInAYear y | y `mod` 4 == 0 = 527040
+            | otherwise      = 525600
+                              
+                                 
 -- Exercise 11
 ppMonth :: Year -> Month -> Calendar -> String
 ppMonth y m (Calendar _ _ events _) = getWeeks daysCount validEvents
