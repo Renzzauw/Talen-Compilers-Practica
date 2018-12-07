@@ -64,51 +64,62 @@ mainCalendar = do
 testCalendar :: FilePath -> IO ()
 testCalendar p = do
                 res <- readCalendar p
-                putStr $ maybe "Calendar parsing error" (ppMonth (Year 1997) (Month 06)) res
+                putStr $ maybe "Calendar parsing error" (ppMonth (Year 2012) (Month 11)) res
 
 -- Exercise 1
+-- Parse a DateTime 
 parseDateTime :: Parser Char DateTime
 parseDateTime = DateTime <$> parseDate <* parseSep <*> parseTime <*> parseUTC
 
+-- Parse a Date
 parseDate :: Parser Char Date
 parseDate = Date <$> parseYear <*> parseMonth <*> parseDay
 
+-- Parse a Year
 parseYear :: Parser Char Year
 parseYear = toYear <$> digit <*> digit <*> digit <*> digit
           where toYear a b c d = Year $ toInt $ charList a b c d
                 charList a b c d = a : b : c : d : []
 
+-- Parse a Month                
 parseMonth :: Parser Char Month
 parseMonth = toMonth <$> digit <*> digit
            where toMonth a b = Month $ toInt $ tdtd a b
 
+-- Parse a Day           
 parseDay :: Parser Char Day
 parseDay = toDay <$> digit <*> digit
          where toDay a b = Day $ toInt $ tdtd a b
 
+-- Parse a Time         
 parseTime :: Parser Char Time
 parseTime = Time <$> parseHour <*> parseMinute <*> parseSecond
 
+-- Parse an Hour         
 parseHour :: Parser Char Hour
 parseHour = toHour <$> digit <*> digit
           where toHour a b = Hour $ toInt $ tdtd a b
 
+-- Parse a Minute         
 parseMinute :: Parser Char Minute
 parseMinute = toMinute <$> digit <*> digit
             where toMinute a b = Minute $ toInt $ tdtd a b
 
-
+-- Parse a Second         
 parseSecond :: Parser Char Second
 parseSecond = toSecond <$> digit <*> digit
             where toSecond a b = Second $ toInt $ tdtd a b
 
+-- Parse a seperator           
 parseSep :: Parser Char Char
 parseSep = satisfy (=='T')
 
+-- Check if the input has a Z
 zToBool :: Char -> Bool
 zToBool 'Z' = True
 zToBool _   = False
 
+-- Parse the seperator  
 parseUTC :: Parser Char Bool
 parseUTC = zToBool <$> option (satisfy (=='Z')) 'F'
 
@@ -116,6 +127,7 @@ parseUTC = zToBool <$> option (satisfy (=='Z')) 'F'
 tdtd :: Char -> Char -> [Char]
 tdtd a b = a : b : []
 
+-- String to Int
 toInt :: String -> Int
 toInt xs = read xs
 
@@ -145,6 +157,7 @@ printDateTime dt = y ++ m ++ da ++ datesep ++ h ++ mi ++ s ++ timeutc
                   bToS False = ""
 
 -- Exercise 4
+parsePrint :: String -> Maybe String
 parsePrint s = fmap printDateTime $ run parseDateTime s
 
 -- Exercise 5
@@ -175,9 +188,7 @@ data BeginEnd = Begin Text | End Text
 instance Show BeginEnd where
         show (Begin t) = "BEGIN:" ++ t ++ crlf
         show (End t)   = "END:" ++ t ++ crlf
-
-
-    
+   
 data Calprop = Prodid {unProdid :: Text} | Version {unVersion :: Text}
     deriving (Eq, Ord)
 instance Show Calprop where
@@ -211,7 +222,6 @@ crlf = "\r\n"
 enter :: String
 enter = "\n"
 
-
 -- Exercise 7
 data Token = Tbegincalendar Text | Tprodid Text | Tversion Text | Tbeginevent Text | Tdtstamp DateTime | Tuid Text | Tdtstart DateTime | Tdtend DateTime | Tdescription Text | Tsummary Text | Tlocation Text | TendEvent Text | TendCalendar Text
      deriving (Eq, Ord, Show)
@@ -220,23 +230,24 @@ data Suffix = SText Text | SDT DateTime
      deriving (Eq, Ord, Show)
   
 ---------------------------LEXING-------------------------------
+-- See if the input parses to any token
 scanCalendar :: Parser Char [Token]
 scanCalendar = greedy1 anyToken <* eof
              where anyToken = tbegincalendar <|> tprodid <|> tversion <|> tendcalendar <|> tbeginevent <|> tdtstamp <|> tuid <|> tdtstart <|> tdtend <|> tdescription <|> tsummary <|> tlocation <|> tendevent
-                           
+
+-- Function that parses until it hits an crlf
+anyChar :: Parser Char String
+anyChar = ((const []) <$> token crlf) <<|>  (:) <$> anySymbol <*> anyChar
+
 -- Always has to parse the VCALENDAR value
 tbegincalendar :: Parser Char Token
 tbegincalendar = Tbegincalendar <$> (token "BEGIN:" *> token ("VCALENDAR") <* token crlf)
 
 tprodid :: Parser Char Token
-tprodid = Tprodid <$> (token "PRODID:" *> parseString)
-
-parseString :: Parser Char String
-parseString = ((const []) <$> token "\r\n") <<|>  (:) <$> anySymbol <*> parseString
-
+tprodid = Tprodid <$> (token "PRODID:" *> anyChar)
 
 tversion :: Parser Char Token
-tversion = Tversion <$> (token "VERSION:" *> parseString)
+tversion = Tversion <$> (token "VERSION:" *> anyChar)
 
 -- Always has to parse the VCALENDAR value
 tendcalendar :: Parser Char Token
@@ -250,7 +261,7 @@ tdtstamp :: Parser Char Token
 tdtstamp = Tdtstamp <$> (token "DTSTAMP:" *> parseDateTime <* token crlf)
 
 tuid :: Parser Char Token
-tuid = Tuid <$> (token "UID:" *> parseString)
+tuid = Tuid <$> (token "UID:" *> anyChar)
 
 tdtstart :: Parser Char Token
 tdtstart = Tdtstart <$> (token "DTSTART:" *> parseDateTime <* token crlf)
@@ -259,13 +270,13 @@ tdtend :: Parser Char Token
 tdtend = Tdtend <$> (token "DTEND:" *> parseDateTime <* token crlf)
 
 tdescription :: Parser Char Token
-tdescription = Tdescription <$> (token "DESCRIPTION:" *> parseString)
+tdescription = Tdescription <$> (token "DESCRIPTION:" *> anyChar)
 
 tsummary :: Parser Char Token
-tsummary = Tsummary <$> (token "SUMMARY:" *> parseString)
+tsummary = Tsummary <$> (token "SUMMARY:" *> anyChar)
 
 tlocation :: Parser Char Token
-tlocation = Tlocation <$> (token "LOCATION:" *> parseString)
+tlocation = Tlocation <$> (token "LOCATION:" *> anyChar)
 
 -- Always has to parse the VCALENDAR value
 tendevent :: Parser Char Token
@@ -279,16 +290,18 @@ parseCalendar = Calendar <$> beginCalendar <*> checkProps <*> many parseEvent <*
 parseEvent :: Parser Token Event
 parseEvent = Event <$> beginEvent <*> parseProps <*> endEvent
 
+-- Run all of the possible parsers, and pick the one that succeeds
 parseProps :: Parser Token [Property]
-parseProps = choice $ map sequence withoutopt
+parseProps = choice $ map sequence allSequences
 
 calprops :: [[Parser Token Calprop]]
 calprops = [[prodid, version],[version, prodid]]
 
-withoutopt :: [[Parser Token Property]]
-withoutopt = foldr (++) [] $ map permutations $ map (++ perms) subs
-           where perms = [dtstamp,uid,dtstart,dtend]
-                 subs  = subsequences [description, summary, location]
+-- Generates every possible sequence of properties
+allSequences :: [[Parser Token Property]]
+allSequences = foldr (++) [] $ map permutations $ map (++ perms) subs
+             where perms = [dtstamp,uid,dtstart,dtend]
+                   subs  = subsequences [description, summary, location]
 
 -- Cover your eyes please, a lot of duplicated code coming right up
 beginCalendar :: Parser Token BeginEnd
@@ -419,16 +432,8 @@ readCalendar path = do
                     content <- hGetContents handle
                     return $ recognizeCalendar content
 
-getInput :: FilePath -> IO String
-getInput p = do
-         handle <- openFile p ReadMode
-         _ <- hSetNewlineMode handle noNewlineTranslation
-         content <- hGetContents handle
-         return content
-
-
 -- Exercise 9
--- DO NOT use a derived Show instance. Your printing style needs to be nicer than that :)
+-- DO NOT use a derived Show instance. Your printing style needs to be nicer than that 😂👌🅱
 printCalendar :: Calendar -> String
 printCalendar (Calendar begin props events end) = show begin ++ foldr (++) [] (map show props) ++ foldr (++) [] (map printEvent events) ++ show end
 
@@ -488,28 +493,11 @@ timeSpent :: String -> Calendar -> Int
 timeSpent summary (Calendar _ _ events _) = sum [eventTime x | x <- matchingEvents] -- TODO: dit fixen met min begin en max eindtijd
                                             where matchingEvents = filterEventsThatMatch (zipEventsWithBools events  (propsMatchSumm summary events))
                           
--- From a list of start times, return the earliest start time                         
-getMinStartTime :: [DateTime] -> DateTime
-getMinStartTime [] = error "getMinStartTime error: empty list of DateTimes passed"                         
-getMinStartTime xs = head (sort xs)
-
--- From a list of end times, return the latest end time  
-getMaxEndTime :: [DateTime] -> DateTime
-getMaxEndTime [] = error "getMaxEndTime error: empty list of DateTimes passed"  
-getMaxEndTime xs = last (sort xs)
-
-
--- Sort two DateTimes in ascending order
-sortDateTimes :: [DateTime] -> [DateTime]
-sortDateTimes []                     = []
-sortDateTimes (t1:t2:xs) | t1 <= t2  = t1 : t2 : sortDateTimes xs --TODO dit zal vast niet werken
-                         | otherwise = t2 : t1 : sortDateTimes xs
-
 -- Filter the events that do match the summary                        
 filterEventsThatMatch :: [(Event, Bool)] -> [Event]
 filterEventsThatMatch [] = []
-filterEventsThatMatch [(x, True), xs] = x : filterEventsThatMatch [xs]
-filterEventsThatMatch [(x, False), xs] = filterEventsThatMatch [xs]
+filterEventsThatMatch ((x, True):xs) = x : filterEventsThatMatch xs
+filterEventsThatMatch ((x, False):xs) = filterEventsThatMatch xs
 
 -- Zips the events with a bool if the event has the summary
 zipEventsWithBools :: [Event] -> [Bool] -> [(Event, Bool)]
@@ -561,23 +549,27 @@ dayTimeConversion dt = newDay
                           newDay = DT.fromGregorian (toInteger yr) mnt dy
                                 
 -- Exercise 11
+-- Draw the calendar in the console
 ppMonth :: Year -> Month -> Calendar -> String
 ppMonth y m (Calendar _ _ events _) = getWeeks daysCount validEvents
                                     where daysCount      = getAmountOfDays y m
                                           validEvents    = sortByDay (filterEvents y m events) daysCount [[]]
 
+-- Print all the weeks                                          
 getWeeks :: Int -> [[Event]] -> String
 getWeeks 28 events = div ++ getWeek (1,7) events ++ div ++ getWeek (8,14) events ++ div ++ getWeek (15,21) events ++ div ++ getWeek (22,28) events ++ div
                    where div = divider 7
 getWeeks d events  = div ++ getWeek (1,7) events ++ div ++ getWeek (8,14) events ++ div ++ getWeek (15,21) events ++ div ++ getWeek (22,28) events ++ div ++ getWeek (29, d) events ++ divider (d - 28)
                    where div = divider 7
 
+-- Get all the lines of a week                   
 getWeek :: (Int, Int) -> [[Event]] -> String
 getWeek (low, high) events = [y | x <- [0 .. rowHeight], y <- (foldr (++) [] (map (\z -> z !! x) getDays)) ++ "|" ++ enter]
                            where rowHeight = maximum $ map length correctEvents
                                  getDays = [getDay y rowHeight (events !! y) | y <- [low .. high]]
                                  correctEvents = drop (low - 1) $ take high events
 
+-- Get a day with all events
 getDay :: Int -> Int -> [Event] -> [String]
 getDay day height events = printDayNumber : printEvents
                          where printDayNumber = case day < 10 of
@@ -593,23 +585,20 @@ getDay day height events = printDayNumber : printEvents
                                          True -> "0" ++ show g
                                          _    -> show g
 
+-- Get all the properties of an event
 getEventProps :: Event -> [Property]
 getEventProps (Event _ props _) = props
 
+-- Get all the events of a rowindex
 getRowEvents :: Int -> [Event] -> [Event]
 getRowEvents row events = filter (\x -> func x) events 
                         where func y = getDayFromEvent y > (row * 7 - 7) && getDayFromEvent y <= (row * 7)
 
+-- Get the day index from an event
 getDayFromEvent :: Event -> Int
-getDayFromEvent (Event _ props _) = unDay $ day $ date $ findstamp props
+getDayFromEvent (Event _ props _) = unDay $ day $ date $ getStartTime props
 
-findstamp :: [Property] -> DateTime
-findstamp [] = error "Dtstamp should exist"
-findstamp ((Dtstamp x): xs) = x
-findstamp (_:xs)            = findstamp xs
-
-
-
+-- Get the amount of days in a month
 getAmountOfDays :: Year -> Month -> Int
 getAmountOfDays y (Month 2)     | (unYear y) `mod` 4 == 0 = 29
                                 | otherwise      = 28                        
@@ -617,16 +606,19 @@ getAmountOfDays _ month         | m == 1 || m == 3 || m == 5 || m == 7 || m == 8
                                 | otherwise                                                            = 30
                                 where m = unMonth month
 
+-- Get all the events in a given month and year                                
 filterEvents :: Year -> Month -> [Event] -> [Event]
 filterEvents y m events = filter (\x -> years x == (unYear y) && (months x == (unMonth m))) events
-                      where years (Event _ p _) = unYear $ year $ date $ findstamp p
-                            months (Event _ p _)= unMonth $ month $ date $ findstamp p
+                      where years (Event _ p _) = unYear $ year $ date $ getStartTime p
+                            months (Event _ p _)= unMonth $ month $ date $ getStartTime p
 
+-- Sort all the events in lists of events per day                            
 sortByDay :: [Event] -> Int -> [[Event]] -> [[Event]]
 sortByDay events 0 acc          = acc
 sortByDay events currentDay acc = sortByDay events (currentDay - 1) $ checkIfDay : acc
                                 where checkIfDay = filter (\x -> getDayFromEvent x == currentDay) events
 
+-- Print a divider                                
 divider :: Int -> String
 divider a = "+" ++ (concat $ replicate a hyphensplus) ++ enter
          where hyphensplus = replicate 15 '-' ++ "+"
