@@ -53,17 +53,18 @@ mainDateTime = interact (printOutput . processCheck . processInput)
         processCheck = map (maybe SyntaxError (\x -> if checkDateTime x then Valid x else Invalid x))
         printOutput  = unlines . map show
 
+-- We changed putStrLn to putStr so that it supports added breakpoints (\n)
 mainCalendar :: IO ()
 mainCalendar = do
     file:_ <- getArgs
     res <- readCalendar file
-    putStrLn $ maybe "Calendar parsing error" (ppMonth (Year 2012) (Month 11)) res
+    putStr $ maybe "Calendar parsing error" (ppMonth (Year 2012) (Month 11)) res
 
 -- Debug function to see whether the calendar parsing and printing works
 testCalendar :: FilePath -> IO ()
 testCalendar p = do
                 res <- readCalendar p
-                putStrLn $ maybe "Calendar parsing error" (ppMonth (Year 2012) (Month 11)) res
+                putStr $ maybe "Calendar parsing error" (ppMonth (Year 1997) (Month 06)) res
 
 -- Exercise 1
 parseDateTime :: Parser Char DateTime
@@ -206,6 +207,9 @@ instance Show Property where
 
 crlf :: String
 crlf = "\r\n"
+
+enter :: String
+enter = "\n"
 
 
 -- Exercise 7
@@ -410,7 +414,7 @@ recognizeCalendar s = run scanCalendar s >>= run parseCalendar
 -- Exercise 8
 readCalendar :: FilePath -> IO (Maybe Calendar)
 readCalendar path = do
-                    handle <- openFile path ReadMode
+                    handle <- openFile path ReadWriteMode
                     _ <- hSetNewlineMode handle noNewlineTranslation
                     content <- hGetContents handle
                     return $ recognizeCalendar content
@@ -435,34 +439,42 @@ printProp :: Property -> String
 printProp p = show p ++ crlf
 
 -- Exercise 10
+
+-- Checks how many events are in the calendar
 countEvents :: Calendar -> Int
 countEvents (Calendar _ _ events _) = length events
 
+-- Looks for events that are happening at a given date and time in a calendar
 findEvents :: DateTime -> Calendar -> [Event]
 findEvents time (Calendar _ _ events _) = filter (find time) events
 
+-- Chekcs if an event happens during a certain time
 find :: DateTime -> Event -> Bool
 find time (Event _ props _) | (time >= start && time < end) = True
                             | otherwise                     = False
                             where start = getStartTime props
                                   end   = getEndTime props
 
+-- Get the start time from a list of properties                                
 getStartTime :: [Property] -> DateTime
 getStartTime [] = error "Invalid event"
 getStartTime ((Dtstart time):xs) = time
 getStartTime (_:xs) = getStartTime xs
 
+-- Get the end time from a list of properties  
 getEndTime :: [Property] -> DateTime
 getEndTime [] = error "Invalid event"
 getEndTime ((Dtend time):xs) = time
 getEndTime (_:xs) = getEndTime xs
 
+-- Check if events overlap in a calendar
 checkOverlapping :: Calendar -> Bool
 checkOverlapping (Calendar _ _ events _)  | length overlapping > 0 = True
-                                            | otherwise              = False
-                                           where combinations = [(i,j)| i <- events, j <- events, i /= j]
-                                                 overlapping = filter doesOverlap combinations
+                                          | otherwise              = False
+                                        where combinations = [(i,j)| i <- events, j <- events, i /= j]
+                                              overlapping  = filter doesOverlap combinations
 
+ -- Checks if two events overlap                                             
 doesOverlap :: (Event, Event) -> Bool
 doesOverlap ((Event _ props1 _), (Event _ props2 _)) | ( (beg1 <= end2) && end1 >= beg2) = True
                                                      | otherwise                         = False
@@ -471,45 +483,64 @@ doesOverlap ((Event _ props1 _), (Event _ props2 _)) | ( (beg1 <= end2) && end1 
                                                           end1 = getEndTime props1
                                                           end2 = getEndTime props2 
 
+-- Total amount of minutes spend on events with a given summary                                                          
 timeSpent :: String -> Calendar -> Int
-timeSpent summary (Calendar _ _ events _) = sum [eventTime x | x <- matchingEvents]
+timeSpent summary (Calendar _ _ events _) = sum [eventTime x | x <- matchingEvents] -- TODO: dit fixen met min begin en max eindtijd
                                             where matchingEvents = filterEventsThatMatch (zipEventsWithBools events  (propsMatchSumm summary events))
+                          
+-- From a list of start times, return the earliest start time                         
+getMinStartTime :: [DateTime] -> DateTime
+getMinStartTime [] = error "getMinStartTime error: empty list of DateTimes passed"                         
+getMinStartTime xs = head (sort xs)
 
----findOverlappingEvents :: [Event] -> [[Event]]
---findOverlappingEvents []         = [[]]
---findOverlappingEvents events@(x:xs:xss) = [(a:b)| a <- events, b <- events, b /= a, (doesOverlap a b) == True]
+-- From a list of end times, return the latest end time  
+getMaxEndTime :: [DateTime] -> DateTime
+getMaxEndTime [] = error "getMaxEndTime error: empty list of DateTimes passed"  
+getMaxEndTime xs = last (sort xs)
 
--- | doesOverlap (x, xs) = [[x:xs]] : [findOvxerlappingEvents(xs:xss)]
-                            -- | otherwise           = [[x], [xs]] : [findOverlappingEvents(xs:xss)]
 
+-- Sort two DateTimes in ascending order
+sortDateTimes :: [DateTime] -> [DateTime]
+sortDateTimes []                     = []
+sortDateTimes (t1:t2:xs) | t1 <= t2  = t1 : t2 : sortDateTimes xs --TODO dit zal vast niet werken
+                         | otherwise = t2 : t1 : sortDateTimes xs
+
+-- Filter the events that do match the summary                        
 filterEventsThatMatch :: [(Event, Bool)] -> [Event]
 filterEventsThatMatch [] = []
 filterEventsThatMatch [(x, True), xs] = x : filterEventsThatMatch [xs]
 filterEventsThatMatch [(x, False), xs] = filterEventsThatMatch [xs]
 
+-- Zips the events with a bool if the event has the summary
 zipEventsWithBools :: [Event] -> [Bool] -> [(Event, Bool)]
 zipEventsWithBools events bools = zip events bools
 
+-- return a list of Bools that tell whether or not the event has the given summary
 propsMatchSumm :: String -> [Event] -> [Bool]
 propsMatchSumm summary events = map (matchSummary summary) (getProps events)
 
+-- Get all the properties from a list of events
 getProps :: [Event] -> [[Property]]
 getProps [] = []
 getProps ((Event _ props _):xs) = props : getProps xs
 
+-- Check if a list of properties contains the given summary
 matchSummary :: String -> [Property] -> Bool
 matchSummary summary props = (getSummary props) == summary
 
+-- Get the summary from a list of properties
 getSummary :: [Property] -> String
 getSummary [] = error "Invalid event"
 getSummary ((Summary summ):xs) = summ
 getSummary (_:xs) = getSummary xs
 
+-- Calculate the duration of an event in minutes 
 eventTime :: Event -> Int
 eventTime (Event _ props _) = timeDifference beg end
                         where beg   = getStartTime props
                               end   = getEndTime props
 
+-- Calculate the difference in minutes between the start and endtime of an event
 timeDifference :: DateTime -> DateTime -> Int
 timeDifference t1 t2 = diffInMins + 60 * (hour2 - hour1) + (min2 - min1)
                     where dtTup1     = dayTimeConversion t1
@@ -520,34 +551,15 @@ timeDifference t1 t2 = diffInMins + 60 * (hour2 - hour1) + (min2 - min1)
                           min2       = unMinute $ minute $ time $ t2
                           diff       = fromIntegral (DT.diffDays dtTup2 dtTup1)
                           diffInMins = diff * 1440
-                
-                        
-                        {-total1 = min1 + hour1 * 60 + day1 * 1440 + month1 * (minsInAMonth month1) + year1 * (minsInAYear year1)
-                        total2 = min2 + hour2 * 60 + day2 * 1440 + month2 * (minsInAMonth month2) + year2 * (minsInAYear year2)
-                        year1  = unYear $ year $ date $ t1
-                        year2  = unYear $ year $ date $ t2
-                        month1 = unMonth $ month $ date $ t1
-                        month2 = unMonth $ month $ date $ t2
-                        day1   = unDay $ day $ date $ t1
-                        day2   = unDay $ day $ date $ t2
-                        hour1  = unHour $ hour $ time $ t1
-                        hour2  = unHour $ hour $ time $ t2
-                        min1   = unMinute $ minute $ time $ t1
-                        min2   = unMinute $ minute $ time $ t2
-                        -}
-
+                                   
+-- Convert a DateTime to a Day from the time library                     
 dayTimeConversion :: DateTime -> DT.Day         
 dayTimeConversion dt = newDay
                     where yr  = unYear $ year $ date $ dt
                           mnt = unMonth $ month $ date $ dt
                           dy   = unDay $ day $ date $ dt
                           newDay = DT.fromGregorian (toInteger yr) mnt dy
-
-minsInAYear :: Int -> Int
-minsInAYear y | y `mod` 4 == 0 = 527040
-            | otherwise      = 525600
-                              
-                                 
+                                
 -- Exercise 11
 ppMonth :: Year -> Month -> Calendar -> String
 ppMonth y m (Calendar _ _ events _) = getWeeks daysCount validEvents
@@ -555,25 +567,31 @@ ppMonth y m (Calendar _ _ events _) = getWeeks daysCount validEvents
                                           validEvents    = sortByDay (filterEvents y m events) daysCount [[]]
 
 getWeeks :: Int -> [[Event]] -> String
-getWeeks 28 events = divider ++ getWeek (1,7) events ++ divider ++ getWeek (8,14) events ++ divider ++ getWeek (15,21) events ++ divider ++ getWeek (22,28) events ++ divider
-getWeeks d events  = divider ++ getWeek (1,7) events ++ divider ++ getWeek (8,14) events ++ divider ++ getWeek (15,21) events ++ divider ++ getWeek (22,28) events ++ divider ++ getWeek (29, d) events ++ divider
+getWeeks 28 events = div ++ getWeek (1,7) events ++ div ++ getWeek (8,14) events ++ div ++ getWeek (15,21) events ++ div ++ getWeek (22,28) events ++ div
+                   where div = divider 7
+getWeeks d events  = div ++ getWeek (1,7) events ++ div ++ getWeek (8,14) events ++ div ++ getWeek (15,21) events ++ div ++ getWeek (22,28) events ++ div ++ getWeek (29, d) events ++ divider (d - 28)
+                   where div = divider 7
 
 getWeek :: (Int, Int) -> [[Event]] -> String
-getWeek (low, high) events = [y | x <- [low .. high], y <- (foldr (++) [] (map (\z -> z !! x) getDays)) ++ crlf]
-                           where rowHeight = maximum $ map length events
+getWeek (low, high) events = [y | x <- [0 .. rowHeight], y <- (foldr (++) [] (map (\z -> z !! x) getDays)) ++ "|" ++ enter]
+                           where rowHeight = maximum $ map length correctEvents
                                  getDays = [getDay y rowHeight (events !! y) | y <- [low .. high]]
+                                 correctEvents = drop (low - 1) $ take high events
 
 getDay :: Int -> Int -> [Event] -> [String]
 getDay day height events = printDayNumber : printEvents
                          where printDayNumber = case day < 10 of
-                                                True -> "| " ++ show day ++ replicate 13 ' ' ++ "|"
-                                                _    -> "| " ++ show day ++ replicate 12 ' ' ++ "|"
+                                                True -> "| " ++ show day ++ replicate 13 ' '
+                                                _    -> "| " ++ show day ++ replicate 12 ' '
                                printEvents = map printEvent events ++ replicate (height - length events) emptyLine
-                               printEvent e = " " ++ getStart e ++ " - " ++ getEnd e ++ " " 
-                               getStart = (\x -> show (unHour(hour (time (getStartTime (z x))))) ++ "-" ++ show (unMinute(minute (time (getStartTime (z x))))))
-                               getEnd = (\x -> show (unHour(hour (time (getEndTime (z x))))) ++ "-" ++ show (unMinute(minute (time (getEndTime (z x))))))
-                               emptyLine = "|" ++ replicate 15 ' ' ++ "|"
+                               printEvent e = "| " ++ getStart e ++ " - " ++ getEnd e ++ " "
+                               getStart = (\x -> zeros (unHour(hour (time (getStartTime (z x))))) ++ "-" ++ zeros (unMinute(minute (time (getStartTime (z x))))))
+                               getEnd = (\x -> zeros (unHour(hour (time (getEndTime (z x))))) ++ "-" ++ zeros (unMinute(minute (time (getEndTime (z x))))))
+                               emptyLine = "|" ++ replicate 15 ' '
                                z = getEventProps
+                               zeros g = case g < 10 of
+                                         True -> "0" ++ show g
+                                         _    -> show g
 
 getEventProps :: Event -> [Property]
 getEventProps (Event _ props _) = props
@@ -609,6 +627,6 @@ sortByDay events 0 acc          = acc
 sortByDay events currentDay acc = sortByDay events (currentDay - 1) $ checkIfDay : acc
                                 where checkIfDay = filter (\x -> getDayFromEvent x == currentDay) events
 
-divider :: String
-divider = "+" ++ (concat $ replicate 7 hyphensplus) ++ crlf
-        where hyphensplus = replicate 15 '-' ++ "+"
+divider :: Int -> String
+divider a = "+" ++ (concat $ replicate a hyphensplus) ++ enter
+         where hyphensplus = replicate 15 '-' ++ "+"
