@@ -50,3 +50,44 @@ data Step  =  Done  Space Pos Heading
            |  Ok    ArrowState
            |  Fail  String
 
+-- Exercise 2
+data Program = Program [Rule]
+data Rule = Rule Identifier [Command]
+data Command = Go | Take | Mark | Nothing | Turn Direction | Case Direction [Alt] | Identifier
+data Direction = Left | Right | Front
+type Identifier = String
+data Alt = Alt Pat [Command]
+data Pat = PEmpty | PLambda | PDebris | PAsteroid | PBoundary | Any
+
+-- Exercise 3
+
+-- zie parser
+
+-- Exercise 4
+{-
+Left recursive parsers are ambiguous, and can result in more than one parse tree. Most parsers, like happy, throw errors when they spot LR segments in their parsers.
+Happy has the GLR extention which can be triggered with the --glr flag, which allows the parsing of left recursive grammars.
+It does that by exploring both paths simultaniously. As a result the parser does not construct a parse tree, but rather a 'parse graph'.
+Right recursive parsers are not ambiguous and therefore parse normally.
+TODO: Ik heb geen idee hoe het zit met combinators :(
+-}
+-- Exercise 5
+type PAlgebra r = (r -> r)
+-- Exercise 6
+-- Exercise 7
+-- Size equals the width here, the height does not matter here
+printSpace :: Space -> Size -> String
+printSpace space width = concat $ map ((\x -> maybeEnter (fst x) (printElement (snd x)))) (L.assocs space)
+                       where printElement :: Contents -> String
+                             printElement Empty    = "."
+                             printElement Lambda   = "\\"
+                             printElement Debris   = "%"
+                             printElement Asteroid = "O"
+                             printElement Boundary = "#"
+                             maybeEnter (a,b) s    = case a == width of
+                                                       True -> s ++ "\\n\\r"
+                                                       _    -> s
+
+-- Exercise 8
+toEnvironment :: String -> Environment
+-- TODO: dit kan eigenlijk pas als de vorige opdrachten ook werken...
