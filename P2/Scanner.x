@@ -1,5 +1,5 @@
 {
-module Main (main) where
+module Scanner where
 }
 
 %wrapper "basic"
@@ -10,7 +10,7 @@ $symbols = [\-\>\,\.\_\;]   -- all other symbols occuring in the commands
 
 tokens :-
     $white+                         ;                       -- Ignore whitespaces
-    $digit+                         { \s -> Int (read s) }
+    $digit+                         { \s -> read s }
  
     -- $alpha [$alpha $digit \_ \’]* { \s -> Var s } overbodig?
 
@@ -38,11 +38,11 @@ tokens :-
     '_'        { \s -> TUnderscore }
 
     -- Idents
-    "+"         { \s -> TChar '+' }
-    "-"         { \s -> TChar '-' }
-    $alpha [$alpha $digit]+ { \s -> TChar (head s) }
+    -- "+"         { \s -> TSingleChar '+' }
+    -- "-"         { \s -> TSingleChar '-' }
+    -- $alpha [$alpha $digit]+ { \s -> TSingleChar (head s) }
 
-
+{
 -- The token type:
 data Token =
     TArrow       |   
@@ -65,16 +65,19 @@ data Token =
     TDebris      |
     TAsteroid    |
     TBoundary    |
-    TUnderscore  |
-    TIdent       
-    --deriving (Eq,Show)
+    TUnderscore  
+    --TIdent       
+    deriving (Eq,Show, Read)
+
+scanTokens :: String -> [Token]
+scanTokens = alexScanTokens
 
 -- The Ident type:
-data TIdent = 
-    TMultiChar TChar TIdent | 
-    TChar Char
+--data TIdent = 
+    --TMultiChar Char TIdent | 
+    --TSingleChar Char
     --deriving (Eq,Show)  
-{
+
 main = do
     s <- getContents
     print (alexScanTokens s)
