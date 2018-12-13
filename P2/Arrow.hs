@@ -60,6 +60,7 @@ data Direction = Left | Right | Front
 data Alts = NoneA | MultipleA Alt Alts
 data Alt = Alt Pat Commands
 data Pat = PEmpty | PLambda | PDebris | PAsteroid | PBoundary | PAny
+         deriving    (Eq)
 
 -- Exercise 3
 
@@ -153,35 +154,49 @@ foldPat e pA PAny = pAlAny pA $ e
 
 -- Exercise 6
 
-pEvalAlgebra :: PAlgebra (Env -> Bool) (Env -> Env)
-pEvalAlgebra = PAlgebra {palprogram, palnorules, palmultiplerules, palrule, palruleid, palnocommands, plmultiplecommands, palgo, palmark, palnothing, palturn, palcase, palcmdrule, palcmdruleid, palleft, palright, palfront, palnoalts, palmultiplealts, palempty, pallambda, paldebris, palasteroid, palboundary, palany}
+pEvalAlgebra :: PAlgebra Bool
+-- TODO: alsjeblieft minder lang
+pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlMultipleRules = palmultiplerules, pAlRule = palrule, pAlRuleID = palruleid, pAlNoCommands = palnocommands, pALMultipleCommands = palmultiplecommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlFront = palfront, pAlNoAlts = palnoalts, pAlMultipleAlts = palmultiplealts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
              where palprogram          = (\env -> \x -> x)
                    palnorules          = (\env -> True)
                    palmultiplerules    = (\env -> \x -> \xs -> x && xs && L.member "start" env)
-                   palrule             = (\env -> \id -> \cmds -> id && cmds && not L.member id env)
-                   palruleid           = (\env -> \name -> True)
+                   palrule             = (\env -> \id -> \cmds -> id && cmds)
+                   palruleid           = (\env -> \name -> not (L.member name env))
                    palnocommands       = (\env -> True)
                    palmultiplecommands = (\env -> \x -> \xs -> x && xs)
                    palgo               = (\env -> True)
+                   paltake             = (\env -> True)
                    palmark             = (\env -> True)
                    palnothing          = (\env -> True)
                    palturn             = (\env -> \x -> True)
-                   palcase             = (\env -> \x -> \xs -> x && xs)
-                   palcmdrule          = (\env -> \r -> L.member r env)
-                   palcmdruleid        = (\env -> \name -> True)
+                   palcase             = (\env x xs -> x && xs)
+                   palcmdrule          = (\env -> \r -> r)
+                   palcmdruleid        = (\env -> \name -> L.member name env)
                    palleft             = (\env -> True)
                    palright            = (\env -> True)
                    palfront            = (\env -> True)
                    palnoalts           = (\env -> True)
-                   palmultiplealts     = (\env -> \x -> \xs -> x && xs)
+                   palmultiplealts     = (\env -> \x -> \xs -> x || xs)
                    palalt              = (\env -> \x -> \y -> x && y)
-                   palempty            = (\env -> True)
-                   pallambda           = (\env -> True)
-                   paldebris           = (\env -> True)
-                   palasteroid         = (\env -> True)
-                   palboundary         = (\env -> True)
+                   palempty            = (\env -> False)
+                   pallambda           = (\env -> False)
+                   paldebris           = (\env -> False)
+                   palasteroid         = (\env -> False)
+                   palboundary         = (\env -> False)
                    palany              = (\env -> True)
-                   addrule             = (\env -> \x -> \e -> insert x (e env) env)
+
+validAlts :: Alts -> Bool
+validAlts a = containsAny a || allPossibilities a
+            where allPossibilities alts = length (findUnique alts) == 5
+                  containsAny NoneA = False
+                  containsAny (MultipleA (Alt PAny _) _) = True
+                  containsAny (MultipleA _ alts) = containsAny alts
+                  findUnique :: Alts -> [Pat]
+                  findUnique NoneA = []
+                  findUnique (MultipleA (Alt p _) alts) = case p `elem` (findUnique alts) of
+                                                    False -> p : findUnique alts
+                                                    True  -> findUnique alts
+          
 
 
 -- Exercise 7
