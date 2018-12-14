@@ -4,10 +4,10 @@ module Scanner where
 
 %wrapper "basic"
 
-$digit = 0-9                -- digits
-$alpha = [a-zA-Z]           -- alphabetic characters
-$symbols = [\-\>\,\.\_\;]   -- all other symbols occuring in the commands
-$ident = [$alpha $digit \+ \-]
+$digit = 0-9                      -- digits
+$alpha = [a-zA-Z]                 -- alphabetic characters
+$symbols = [\-\>\,\.\_\;]         -- all other symbols occuring in the commands
+$ident = [$alpha $digit \+ \-]    -- all idents
 
 tokens :-
     $white+     ;                 -- Ignore whitespaces

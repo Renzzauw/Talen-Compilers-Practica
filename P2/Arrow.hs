@@ -8,6 +8,7 @@ import qualified Data.Map as L
 import Control.Monad (replicateM)
 import Data.Char (isSpace)
 import Scanner as S
+import Parser as P
 
 
 type Space     =  Map Pos Contents
