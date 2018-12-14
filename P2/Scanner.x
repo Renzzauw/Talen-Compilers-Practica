@@ -11,9 +11,8 @@ $ident = [$alpha $digit \+ \-]
 
 tokens :-
     $white+     ;                 -- Ignore whitespaces
-    "--".*      ;                 -- Ignore comments untill the end of the line
-    -- $digit+  { \s -> read s }
-
+    "--".*      ;                 -- Ignore comments
+    
     -- Tokens
     "->"       { \s -> TArrow }
     "."        { \s -> TDot }
