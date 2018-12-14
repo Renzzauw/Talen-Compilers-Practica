@@ -7,6 +7,7 @@ import Data.List
 import qualified Data.Map as L
 import Control.Monad (replicateM)
 import Data.Char (isSpace)
+import Scanner as S
 
 
 type Space     =  Map Pos Contents
@@ -76,8 +77,8 @@ TODO: Ik heb geen idee hoe het zit met combinators :(
 -}
 -- Exercise 5
 -- We use records here so we do not have to pattern match on the insane amount of functions in the tuple
--- Env is a mapping of all known rules
-type Env = Map String Commands
+-- Env is a list of all known rules. Its contents are not important here, as only their name matters here
+type Env = [String]
 
 data PAlgebra r = PAlgebra{
                             pAlProgram          :: Env -> r -> r,
@@ -153,15 +154,16 @@ foldPat e pA PBoundary = pAlBoundary pA $ e
 foldPat e pA PAny = pAlAny pA $ e
 
 -- Exercise 6
-
-pEvalAlgebra :: PAlgebra Bool
 -- TODO: alsjeblieft minder lang
+
+-- Evaluates for the first 3 points. The 4th has to be done in a different algebra
+pEvalAlgebra :: PAlgebra Bool
 pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlMultipleRules = palmultiplerules, pAlRule = palrule, pAlRuleID = palruleid, pAlNoCommands = palnocommands, pALMultipleCommands = palmultiplecommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlFront = palfront, pAlNoAlts = palnoalts, pAlMultipleAlts = palmultiplealts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
              where palprogram          = (\env -> \x -> x)
                    palnorules          = (\env -> True)
-                   palmultiplerules    = (\env -> \x -> \xs -> x && xs && L.member "start" env)
+                   palmultiplerules    = (\env -> \x -> \xs -> x && xs && elem "start" env)
                    palrule             = (\env -> \id -> \cmds -> id && cmds)
-                   palruleid           = (\env -> \name -> not (L.member name env))
+                   palruleid           = (\env -> \name -> not (elem name env))
                    palnocommands       = (\env -> True)
                    palmultiplecommands = (\env -> \x -> \xs -> x && xs)
                    palgo               = (\env -> True)
@@ -171,7 +173,7 @@ pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlM
                    palturn             = (\env -> \x -> True)
                    palcase             = (\env x xs -> x && xs)
                    palcmdrule          = (\env -> \r -> r)
-                   palcmdruleid        = (\env -> \name -> L.member name env)
+                   palcmdruleid        = (\env -> \name -> elem name env)
                    palleft             = (\env -> True)
                    palright            = (\env -> True)
                    palfront            = (\env -> True)
@@ -185,19 +187,87 @@ pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlM
                    palboundary         = (\env -> False)
                    palany              = (\env -> True)
 
-validAlts :: Alts -> Bool
-validAlts a = containsAny a || allPossibilities a
-            where allPossibilities alts = length (findUnique alts) == 5
-                  containsAny NoneA = False
-                  containsAny (MultipleA (Alt PAny _) _) = True
-                  containsAny (MultipleA _ alts) = containsAny alts
-                  findUnique :: Alts -> [Pat]
-                  findUnique NoneA = []
-                  findUnique (MultipleA (Alt p _) alts) = case p `elem` (findUnique alts) of
-                                                    False -> p : findUnique alts
-                                                    True  -> findUnique alts
-          
+-- Evaluates for the 4th point
+pCaseAlgebra :: PAlgebra (Maybe [Pat])
+pCaseAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlMultipleRules = palmultiplerules, pAlRule = palrule, pAlRuleID = palruleid, pAlNoCommands = palnocommands, pALMultipleCommands = palmultiplecommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlFront = palfront, pAlNoAlts = palnoalts, pAlMultipleAlts = palmultiplealts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
+             where palprogram          = (\env -> \x -> x)
+                   palnorules          = (\env -> Just [])
+                   palmultiplerules    = (\env -> \x -> \xs -> combineMaybes x xs)
+                   palrule             = (\env -> \id -> \cmds -> cmds)
+                   palruleid           = (\env -> \name -> Just [])
+                   palnocommands       = (\env -> Just [])
+                   palmultiplecommands = (\env -> \x -> \xs -> combineMaybes x xs)
+                   palgo               = (\env -> Just [])
+                   paltake             = (\env -> Just [])
+                   palmark             = (\env -> Just [])
+                   palnothing          = (\env -> Just [])
+                   palturn             = (\env -> \x -> Just [])
+                   palcase             = (\env x xs -> xs)
+                   palcmdrule          = (\env -> \r -> Just [])
+                   palcmdruleid        = (\env -> \name -> Just [])
+                   palleft             = (\env -> Just [])
+                   palright            = (\env -> Just [])
+                   palfront            = (\env -> Just [])
+                   palnoalts           = (\env -> Just [])
+                   palmultiplealts     = (\env -> \x -> \xs -> combineMaybes x xs)
+                   palalt              = (\env -> \x -> \y -> nothingChecker x y)
+                   palempty            = (\env -> Just [PEmpty])
+                   pallambda           = (\env -> Just [PLambda])
+                   paldebris           = (\env -> Just [PDebris])
+                   palasteroid         = (\env -> Just [PAsteroid])
+                   palboundary         = (\env -> Just [PBoundary])
+                   palany              = (\env -> Just [PAny])
 
+-- Helper function, to return a combination of two Maybe [Pat], It is kind of similar to a logical or
+combineMaybes :: Maybe [Pat] -> Maybe [Pat] -> Maybe [Pat]
+combineMaybes Nothing _           = Nothing
+combineMaybes _ Nothing           = Nothing
+combineMaybes (Just xs) (Just ys) = Just (union xs ys)
+
+-- Helper function that checks whether the second value is Nothing or Just (something). In the case of the latter it returns the first value
+nothingChecker :: Maybe [Pat] -> Maybe [Pat] -> Maybe [Pat]
+nothingChecker _ Nothing  = Nothing
+nothingChecker x (Just _) = x
+
+-- Helper function that checks if all cases are caught, or whether there is a wildcard pattern inside
+allFiveOrAny :: Maybe [Pat] -> Maybe [Pat]
+allFiveOrAny (Just xs) | length xs == 5 || elem PAny xs = Just xs
+                       | otherwise                      = Nothing
+allFiveOrAny Nothing = error "It should always be a just!"
+
+-- This algebra constructs an environment containing rules (their names, rather), which will be given as environment to the other two algebras
+pEnvAlgebra :: PAlgebra Env
+pEnvAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlMultipleRules = palmultiplerules, pAlRule = palrule, pAlRuleID = palruleid, pAlNoCommands = palnocommands, pALMultipleCommands = palmultiplecommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlFront = palfront, pAlNoAlts = palnoalts, pAlMultipleAlts = palmultiplealts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
+             where palprogram          = (\env -> \x -> x)
+                   palnorules          = (\env -> env)
+                   palmultiplerules    = (\env -> \x -> \xs -> union x xs )
+                   palrule             = (\env -> \ident -> \cmds -> ident)
+                   palruleid           = (\env -> \name -> name : env)
+                   -- The algebra does not do anything useful from here
+                   palnocommands       = (\env -> env)
+                   palmultiplecommands = (\env -> \x -> \xs -> env)
+                   palgo               = (\env -> env)
+                   paltake             = (\env -> env)
+                   palmark             = (\env -> env)
+                   palnothing          = (\env -> env)
+                   palturn             = (\env -> \x -> env)
+                   palcase             = (\env x xs -> env)
+                   palcmdrule          = (\env -> \r -> env)
+                   palcmdruleid        = (\env -> \name -> env)
+                   palleft             = (\env -> env)
+                   palright            = (\env -> env)
+                   palfront            = (\env -> env)
+                   palnoalts           = (\env -> env)
+                   palmultiplealts     = (\env -> \x -> \xs -> env)
+                   palalt              = (\env -> \x -> \y -> env)
+                   palempty            = (\env -> env)
+                   pallambda           = (\env -> env)
+                   paldebris           = (\env -> env)
+                   palasteroid         = (\env -> env)
+                   palboundary         = (\env -> env)
+                   palany              = (\env -> env)
+
+      
 
 -- Exercise 7
 -- Size equals the width here, the height does not matter
