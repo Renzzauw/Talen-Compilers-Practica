@@ -7,12 +7,12 @@ module Scanner where
 $digit = 0-9                -- digits
 $alpha = [a-zA-Z]           -- alphabetic characters
 $symbols = [\-\>\,\.\_\;]   -- all other symbols occuring in the commands
+$ident = [$alpha $digit \+ \-]
 
 tokens :-
-    $white+                         ;                       -- Ignore whitespaces
-    $digit+                         { \s -> read s }
- 
-    -- $alpha [$alpha $digit \_ \’]* { \s -> Var s } overbodig?
+    $white+     ;                 -- Ignore whitespaces
+    "--".*      ;                 -- Ignore comments untill the end of the line
+    -- $digit+  { \s -> read s }
 
     -- Tokens
     "->"       { \s -> TArrow }
@@ -38,11 +38,20 @@ tokens :-
     '_'        { \s -> TUnderscore }
 
     -- Idents
-    -- "+"         { \s -> TSingleChar '+' }
-    -- "-"         { \s -> TSingleChar '-' }
-    -- $alpha [$alpha $digit]+ { \s -> TSingleChar (head s) }
+    $ident [$alpha $digit \+ \- ]+ { \s -> Tident (stringToTIdent s) }
 
 {
+-- Turn a variable name into a TIdent
+stringToTIdent :: String -> TIdent
+stringToTIdent (x:[]) = TSingleChar x
+stringToTIdent (x:xs)  = TMultiChar x (stringToTIdent xs)
+
+-- The Ident type:
+data TIdent = 
+    TMultiChar Char TIdent | 
+    TSingleChar Char
+    deriving (Eq, Show, Read)  
+
 -- The token type:
 data Token =
     TArrow       |   
@@ -65,18 +74,12 @@ data Token =
     TDebris      |
     TAsteroid    |
     TBoundary    |
-    TUnderscore  
-    --TIdent       
-    deriving (Eq,Show, Read)
+    TUnderscore  |
+    Tident TIdent       
+    deriving (Eq, Show, Read)
 
 scanTokens :: String -> [Token]
 scanTokens = alexScanTokens
-
--- The Ident type:
---data TIdent = 
-    --TMultiChar Char TIdent | 
-    --TSingleChar Char
-    --deriving (Eq,Show)  
 
 main = do
     s <- getContents
