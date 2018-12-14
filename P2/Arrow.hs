@@ -3,6 +3,7 @@ module Arrow where
 import Prelude hiding ((<*), (<$), Right, Left)
 import ParseLib.Abstract
 import Data.Map (Map)
+import Data.Maybe (isJust)
 import Data.List
 import qualified Data.Map as L
 import Control.Monad (replicateM)
@@ -285,10 +286,18 @@ printSpace space = concat $ map ((\x -> maybeEnter (fst x) (printElement (snd x)
                                                  _    -> s
                        width = maximum $ map fst $ map fst $ L.toList space
 
+
+-- TODO: dit kan eigenlijk pas als we weten hoe Alex/Happy werkt...
 -- Exercise 8
 toEnvironment :: String -> Environment
-toEnvironment s = undefined
--- TODO: dit kan eigenlijk pas als we weten hoe Alex/Happy werkt...
+toEnvironment = checkIfPass $ P.happyParse $ S.alexScanTokens
+              where env = foldProgram [] pEnvAlgebra 
+                    checkIfPass p@(Program rules) | foldProgram (env p) pEvalAlgebra p && isJust (foldProgram (env p) pCaseAlgebra p) = makeEnv rules L.empty
+                                                  | otherwise                                                                 = error "Program does not follow the rules!"
+
+makeEnv :: Rules -> Environment -> Environment
+makeEnv NoneR env                            = env
+makeEnv (MultipleR (Rule id cmds) rules) env = L.insert id cmds (makeEnv rules env)
 
 -- Exercise 9
 step :: Environment -> ArrowState -> Step
