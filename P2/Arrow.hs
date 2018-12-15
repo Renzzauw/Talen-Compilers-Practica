@@ -41,11 +41,9 @@ contentsTable =
   [  (Empty,'.'),(Lambda,'\\'),(Debris,'%'),(Asteroid,'O'),(Boundary,'#')]
 
 -- These three should be defined by you
-type Ident = String
---data Commands = NoneC | MultipleC Command Commands
 data Heading = North | South | East | West
 
-type Environment = Map Ident Commands
+type Environment = Map TIdent Commands
 
 type Stack       =  Commands
 data ArrowState  =  ArrowState Space Pos Heading Stack
@@ -54,17 +52,13 @@ data Step  =  Done  Space Pos Heading
            |  Ok    ArrowState
            |  Fail  String
 
+tidentToString :: S.TIdent -> String 
+tidentToString (TSingleChar c)     = [c]
+tidentToString (TMultiChar c rest) = c : tidentToString rest
+
+
 -- Exercise 2
-data Program = Program Rules
-data Rules = NoneR | MultipleR Rule Rules 
-data Rule = Rule String Commands
-data Commands = NoCommand | MultipleC Command Commands
-data Command = CGo | CTake | CMark | CNothing | CTurn Direction | CCase Direction Alts | CRule String
-data Direction = CLeft | CRight | CFront
-data Alts = NoneA | MultipleA Alt Alts
-data Alt = Alt Pat Commands
-data Pat = PEmpty | PLambda | PDebris | PAsteroid | PBoundary | PAny
-         deriving    (Eq)
+
 
 -- Exercise 3
 
@@ -101,7 +95,7 @@ data PAlgebra r = PAlgebra{
                             pAlCmdruleID        :: Env -> String -> r,
                             pAlLeft             :: Env -> r,
                             pAlRight            :: Env -> r,
-                            pAlFront            :: Env -> r,
+                            pAlCFront            :: Env -> r,
                             pAlNoAlts           :: Env -> r,
                             pAlMultipleAlts     :: Env -> r -> r -> r,
                             pAlAlt              :: Env -> r -> r -> r,
@@ -121,10 +115,10 @@ foldRules e pA NoneR                  = pAlNoRules pA $ e
 foldRules e pA (MultipleR rule rules) = (pAlMultipleRules pA) e (foldRule e pA rule) (foldRules e pA rules)
 
 foldRule :: Env -> PAlgebra r -> Rule -> r
-foldRule e pA (Rule id cmds) = (pAlRule pA) e ((pAlRuleID pA) e id) (foldCommands e pA cmds)
+foldRule e pA (Rule id cmds) = (pAlRule pA) e ((pAlRuleID pA) e (tidentToString id)) (foldCommands e pA cmds)
 
 foldCommands :: Env -> PAlgebra r -> Commands -> r
-foldCommands e pA NoneC                = pAlNoCommands pA $ e
+foldCommands e pA NoCommand            = pAlNoCommands pA $ e
 foldCommands e pA (MultipleC cmd cmds) = (pALMultipleCommands pA) e (foldCommand e pA cmd) (foldCommands e pA cmds)
 
 foldCommand :: Env -> PAlgebra r -> Command -> r
@@ -134,16 +128,17 @@ foldCommand e pA CMark            = pAlMark pA $ e
 foldCommand e pA CNothing         = pAlNothing pA $ e
 foldCommand e pA (CTurn dir)      = (pAlTurn pA) e (foldDirection e pA dir)
 foldCommand e pA (CCase dir alts) = (pAlCase pA) e (foldDirection e pA dir) (foldAlts e pA alts)
-foldCommand e pA (CRule name)     = (pAlCmdrule pA) e ((pAlCmdruleID pA) e name)
+foldCommand e pA (Identifier i)   = (pAlCmdrule pA) e ((pAlCmdruleID pA) e name)
+                                where name = TIdentToString i
 
 foldDirection :: Env -> PAlgebra r -> Direction -> r
-foldDirection e pA Left  = pAlLeft pA $ e
-foldDirection e pA Right = pAlRight pA$ e
-foldDirection e pA Front = pAlFront pA$ e
+foldDirection e pA CLeft  = pAlLeft pA $ e
+foldDirection e pA CRight = pAlRight pA$ e
+foldDirection e pA CFront = pAlCFront pA$ e
 
 foldAlts :: Env -> PAlgebra r -> Alts -> r
-foldAlts e pA NoneA                = pAlNoAlts pA $ e
-foldAlts e pA (MultipleA alt alts) = (pAlMultipleAlts pA) e (foldAlt e pA alt) (foldAlts e pA alts)
+foldAlts e pA NoneA                  = pAlNoAlts pA $ e
+foldAlts e pA (MultipleAlt alt alts) = (pAlMultipleAlts pA) e (foldAlt e pA alt) (foldAlts e pA alts)
 
 foldAlt :: Env -> PAlgebra r -> Alt -> r
 foldAlt e pA (Alt pat cmds) = (pAlAlt pA) e (foldPat e pA pat) (foldCommands e pA cmds)
@@ -161,7 +156,7 @@ foldPat e pA PAny = pAlAny pA $ e
 
 -- Evaluates for the first 3 points. The 4th has to be done in a different algebra
 pEvalAlgebra :: PAlgebra Bool
-pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlMultipleRules = palmultiplerules, pAlRule = palrule, pAlRuleID = palruleid, pAlNoCommands = palnocommands, pALMultipleCommands = palmultiplecommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlFront = palfront, pAlNoAlts = palnoalts, pAlMultipleAlts = palmultiplealts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
+pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlMultipleRules = palmultiplerules, pAlRule = palrule, pAlRuleID = palruleid, pAlNoCommands = palnocommands, pALMultipleCommands = palmultiplecommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlCFront = palCfront, pAlNoAlts = palnoalts, pAlMultipleAlts = palmultiplealts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
              where palprogram          = (\env -> \x -> x)
                    palnorules          = (\env -> True)
                    palmultiplerules    = (\env -> \x -> \xs -> x && xs && elem "start" env)
@@ -179,7 +174,7 @@ pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlM
                    palcmdruleid        = (\env -> \name -> elem name env)
                    palleft             = (\env -> True)
                    palright            = (\env -> True)
-                   palfront            = (\env -> True)
+                   palCfront            = (\env -> True)
                    palnoalts           = (\env -> True)
                    palmultiplealts     = (\env -> \x -> \xs -> x || xs)
                    palalt              = (\env -> \x -> \y -> x && y)
@@ -192,7 +187,7 @@ pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlM
 
 -- Evaluates for the 4th point
 pCaseAlgebra :: PAlgebra (Maybe [Pat])
-pCaseAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlMultipleRules = palmultiplerules, pAlRule = palrule, pAlRuleID = palruleid, pAlNoCommands = palnocommands, pALMultipleCommands = palmultiplecommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlFront = palfront, pAlNoAlts = palnoalts, pAlMultipleAlts = palmultiplealts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
+pCaseAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlMultipleRules = palmultiplerules, pAlRule = palrule, pAlRuleID = palruleid, pAlNoCommands = palnocommands, pALMultipleCommands = palmultiplecommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlCFront = palCfront, pAlNoAlts = palnoalts, pAlMultipleAlts = palmultiplealts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
              where palprogram          = (\env -> \x -> x)
                    palnorules          = (\env -> Just [])
                    palmultiplerules    = (\env -> \x -> \xs -> combineMaybes x xs)
@@ -210,7 +205,7 @@ pCaseAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlM
                    palcmdruleid        = (\env -> \name -> Just [])
                    palleft             = (\env -> Just [])
                    palright            = (\env -> Just [])
-                   palfront            = (\env -> Just [])
+                   palCfront            = (\env -> Just [])
                    palnoalts           = (\env -> Just [])
                    palmultiplealts     = (\env -> \x -> \xs -> combineMaybes x xs)
                    palalt              = (\env -> \x -> \y -> nothingChecker x y)
@@ -240,7 +235,7 @@ allFiveOrAny Nothing = error "It should always be a just!"
 
 -- This algebra constructs an environment containing rules (their names, rather), which will be given as environment to the other two algebras
 pEnvAlgebra :: PAlgebra Env
-pEnvAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlMultipleRules = palmultiplerules, pAlRule = palrule, pAlRuleID = palruleid, pAlNoCommands = palnocommands, pALMultipleCommands = palmultiplecommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlFront = palfront, pAlNoAlts = palnoalts, pAlMultipleAlts = palmultiplealts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
+pEnvAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlMultipleRules = palmultiplerules, pAlRule = palrule, pAlRuleID = palruleid, pAlNoCommands = palnocommands, pALMultipleCommands = palmultiplecommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlCFront = palCfront, pAlNoAlts = palnoalts, pAlMultipleAlts = palmultiplealts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
              where palprogram          = (\env -> \x -> x)
                    palnorules          = (\env -> env)
                    palmultiplerules    = (\env -> \x -> \xs -> union x xs )
@@ -259,7 +254,7 @@ pEnvAlgebra = PAlgebra { pAlProgram = palprogram, pAlNoRules = palnorules, pAlMu
                    palcmdruleid        = (\env -> \name -> env)
                    palleft             = (\env -> env)
                    palright            = (\env -> env)
-                   palfront            = (\env -> env)
+                   palCfront            = (\env -> env)
                    palnoalts           = (\env -> env)
                    palmultiplealts     = (\env -> \x -> \xs -> env)
                    palalt              = (\env -> \x -> \y -> env)
@@ -302,22 +297,22 @@ makeEnv (MultipleR (Rule id cmds) rules) env = L.insert id cmds (makeEnv rules e
 
 -- Exercise 9
 step :: Environment -> ArrowState -> Step
-step _ (ArrowState s p h NoneC) = Done s p h
+step _ (ArrowState s p h NoCommand) = Done s p h
 step env (ArrowState s p h c)   = case getCurrent c of
                                   CGo          -> onNew
                                   CTake        -> Ok (ArrowState (L.adjust nowEmpty  p s) p h (newStack c))
                                   CMark        -> Ok (ArrowState (L.adjust nowLambda p s) p h (newStack c))
                                   CNothing     -> stayStill
-                                  CTurn Front  -> stayStill
+                                  CTurn CFront  -> stayStill
                                   CTurn d      -> Ok(ArrowState s p (getHeading h d) (newStack c))
                                   CCase d alts -> case find (\x -> pEquals (getLookPos d) (getPat x)) (foldAlts alts) of
                                                  Nothing -> Fail "There was no match!"
                                                  Just x  -> Ok (ArrowState s p h (prepend (getCom x) (newStack c)))
-                                  CRule     r  -> case L.lookup r env of
+                                  Rule     r  -> case L.lookup r env of
                                                  Nothing -> Fail "Rule does not exist!"
                                                  Just x -> Ok (ArrowState (L.adjust nowEmpty p s) p h (prepend x (newStack c)))
                                 where getCurrent (MultipleC c _) = c
-                                      getCurrent NoneC           = error "None is handled earlier!"
+                                      getCurrent NoCommand           = error "None is handled earlier!"
                                       onNew = case s L.! newPos h of
                                               Empty  -> Ok (ArrowState s (newPos h) h (newStack c)) 
                                               Lambda -> Ok (ArrowState s (newPos h) h (newStack c))
@@ -335,7 +330,7 @@ step env (ArrowState s p h c)   = case getCurrent c of
                                                      Nothing -> Boundary
                                                      Just a  -> a
                                       foldAlts NoneA = []
-                                      foldAlts (MultipleA a ma) = a : foldAlts ma
+                                      foldAlts (MultipleAlt a ma) = a : foldAlts ma
                                       getPat (Alt p _) = p 
                                       getCom (Alt _ c) = c
                                       -- pEquals returns true if the pat and space tile are equal
@@ -346,21 +341,21 @@ step env (ArrowState s p h c)   = case getCurrent c of
                                       pEquals Boundary PBoundary = True
                                       pEquals _ PAny             = True
                                       pEquals _ _                = False
-                                      -- Put the first command string in front of the second
-                                      prepend NoneC cmds               = cmds
+                                      -- Put the first command string in Cfront of the second
+                                      prepend NoCommand cmds               = cmds
                                       prepend (MultipleC cp cmdp) cmds = MultipleC cp $ prepend cmdp cmds
 
 -- Helper function that can determine the next heading given a turn
--- Note that the "Front" direction does not get called here
+-- Note that the "CFront" direction does not get called here
 getHeading :: Heading -> Direction -> Heading
-getHeading North Left  = West
-getHeading North Right = East
-getHeading East Left   = North
-getHeading East Right  = South
-getHeading South Left  = East
-getHeading South Right = West
-getHeading West Left   = South
-getHeading West Right  = North
+getHeading North CLeft  = West
+getHeading North CRight = East
+getHeading East CLeft   = North
+getHeading East CRight  = South
+getHeading South CLeft  = East
+getHeading South CRight = West
+getHeading West CLeft   = South
+getHeading West CRight  = North
 
 -- Exercise 10
 {-
