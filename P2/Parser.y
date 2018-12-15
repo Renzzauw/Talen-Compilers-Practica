@@ -1,10 +1,9 @@
 {
-    module Parser where
-    
-    import Scanner as S
+module Parser where   
+import Scanner as S
 }
 
-%name happyParse
+%name lekkerParsen
 %tokentype { Token }
 %error { parseError }
 
@@ -12,9 +11,9 @@
         rule        { tRule }
         command     { tCmd }
         
-        arrow       { S.TArrow }
-        dot         { S.TDot }
-        comma       { S.TComma }
+        "->"        { S.TArrow }
+        '.'         { S.TDot }
+        ','         { S.TComma }
         go          { S.TGo }
         take        { S.TTake }
         mark        { S.TMark }
@@ -32,56 +31,96 @@
         debris      { S.TDebris }
         asteroid    { S.TAsteroid }
         boundary    { S.TBoundary }
-        any         { S.TUnderscore }
-        ident       { S.TIdent }
+        '_'         { S.TUnderscore } -- any
+        ident       { S.Tident $$ }
             
     
 %%
 
 Program     : Rules                         { Program $1 }
 
-Rules       : Rule                          { [$1] }                    
-            | Rule Rules                    { $2 : $1 }
+Rule        : Identifier "->" Commands '.'  { Rule $1 $3 } 
 
-Rule        : Identifier arrow Commands dot  { Rule $1 $3 } 
+Rules       : {- Empty -}                   { NoneR }                    
+            | Rules Rule                    { MultipleR $2 $1 }
 
-Commands    : Command                       { [$1] }
-            | Command Commands              { $2 : $1 }
+Commands    : {- Empty -}                   { NoCommand }
+            | Commands ',' Command          { MultipleC $3 $1 }
 
-Command     : go                            { Go }
-            | take                          { Take }
-            | mark                          { Mark }
-            | nothing                       { Nothing }
-            | turn Direction                { Turn $2 }
-            | case Direction of Alts end   { Case $2 $4}
+Command     : go                            { CGo }
+            | take                          { CTake }
+            | mark                          { CMark }
+            | nothing                       { CNothing }
+            | turn Direction                { CTurn $2 }
+            | case Direction of Alts end    { CCase $2 $4}
 
-Alts        : Alt                           { [$1] }
-            | Alt Alts                      { $2 : $1 }              
+Direction   : left                          { CLeft }
+            | right                         { CRight }
+            | front                         { CFront }
 
-Alt         : Identifier arrow Commands     { $1 }
+Alts        : {- Empty -}                   { EmptyA }
+            | Alt ';' Alts                  { MultipleAlt $3 $1 }              
 
-Direction   : left                          { Left }
-            | right                         { Right }
-            | front                         { Front }
+Alt         : Pat "->" Commands             { Alt $1 $3 }
+
+Pat         : empty                         { PEmpty }
+            | lambda                        { PLambda }
+            | debris                        { PDebris }
+            | asteroid                      { PAsteroid }
+            | boundary                      { PBoundary }
+            | '_'                           { PAny }
 
 Identifier  : ident                         { $1 }
-
-Pat         : empty                         { Empty }
-            | lambda                        { Lambda }
-            | debris                        { Debris }
-            | asteroid                      { Asteroid }
-            | boundary                      { Boundary }
-            | Identifier                    { $1 }
 {
 
 -- Exercise 2
-data Program = Program [Rule]
-data Rule = Rule Identifier [Command]
-data Command = Go | Take | Mark | Nothing | Turn Dir | Case Dir [Alt] | Identifier
-data Direction = Left | Right | Front
+data Program = Program Rules
+
+data Rule = Rule Identifier Commands
+
+data Rules = NoneR 
+           | MultipleR Rule Rules
+
+
+
+
+
+
+
+
+
+
+
+
+
+data Commands = NoCommand
+              | MultipleC Command Commands
+
+data Command = CGo 
+             | CTake 
+             | CMark 
+             | CNothing 
+             | CTurn Direction 
+             | CCase Direction Alts 
+             | Identifier
+
+data Direction = CLeft 
+               | CRight 
+               | CFront
+
 type Identifier = String
-data Alt = Alt Pat [Command]
-data Pat = Empty | Lambda | Debris | Asteroid | Boundary | Any
+
+data Alts = NoneA
+          | MultipleAlt Alt Alts
+
+data Alt = Alt Pat Commands
+
+data Pat = PEmpty 
+         | PLambda 
+         | PDebris 
+         | PAsteroid 
+         | PBoundary 
+         | PAny
 
 
 parseError :: [Token] -> a
