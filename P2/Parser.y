@@ -39,7 +39,7 @@ import Scanner as S
 
 Program     : Rules                         { Program $1 }
 
-Rule        : Identifier "->" Commands '.'  { Rule $1 $3 } 
+Rule        : ident "->" Commands '.'       { Rule $1 $3 } 
 
 Rules       : {- Empty -}                   { NoneR }                    
             | Rules Rule                    { MultipleR $2 $1 }
@@ -53,13 +53,14 @@ Command     : go                            { CGo }
             | nothing                       { CNothing }
             | turn Direction                { CTurn $2 }
             | case Direction of Alts end    { CCase $2 $4}
+            | ident                         { Identifier }
 
 Direction   : left                          { CLeft }
             | right                         { CRight }
             | front                         { CFront }
 
-Alts        : {- Empty -}                   { EmptyA }
-            | Alt ';' Alts                  { MultipleAlt $3 $1 }              
+Alts        : {- Empty -}                   { NoneA }
+            | Alts ';' Alt                  { MultipleAlt $3 $1 }              
 
 Alt         : Pat "->" Commands             { Alt $1 $3 }
 
@@ -70,7 +71,7 @@ Pat         : empty                         { PEmpty }
             | boundary                      { PBoundary }
             | '_'                           { PAny }
 
-Identifier  : ident                         { $1 }
+-- Identifier  : ident                         { $1 }
 {
 
 -- Exercise 2
@@ -78,20 +79,10 @@ data Program = Program Rules
 
 data Rule = Rule Identifier Commands
 
+
+
 data Rules = NoneR 
            | MultipleR Rule Rules
-
-
-
-
-
-
-
-
-
-
-
-
 
 data Commands = NoCommand
               | MultipleC Command Commands
@@ -108,7 +99,7 @@ data Direction = CLeft
                | CRight 
                | CFront
 
-type Identifier = String
+type Identifier = S.TIdent
 
 data Alts = NoneA
           | MultipleAlt Alt Alts

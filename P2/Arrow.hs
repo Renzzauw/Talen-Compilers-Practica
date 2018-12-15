@@ -42,7 +42,7 @@ contentsTable =
 
 -- These three should be defined by you
 type Ident = String
-data Commands = NoneC | MultipleC Command Commands
+--data Commands = NoneC | MultipleC Command Commands
 data Heading = North | South | East | West
 
 type Environment = Map Ident Commands
