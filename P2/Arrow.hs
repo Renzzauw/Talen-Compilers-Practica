@@ -43,7 +43,7 @@ contentsTable =
 -- These three should be defined by you
 data Heading = North | South | East | West
 
-type Environment = Map TIdent Commands
+type Environment = Map Identifier Commands
 
 type Stack       =  Commands
 data ArrowState  =  ArrowState Space Pos Heading Stack
@@ -115,7 +115,7 @@ foldRules e pA NoneR                  = pAlNoRules pA $ e
 foldRules e pA (MultipleR rule rules) = (pAlMultipleRules pA) e (foldRule e pA rule) (foldRules e pA rules)
 
 foldRule :: Env -> PAlgebra r -> Rule -> r
-foldRule e pA (Rule id cmds) = (pAlRule pA) e ((pAlRuleID pA) e (tidentToString id)) (foldCommands e pA cmds)
+foldRule e pA (Rule id cmds) = (pAlRule pA) e ((pAlRuleID pA) e id) (foldCommands e pA cmds)
 
 foldCommands :: Env -> PAlgebra r -> Commands -> r
 foldCommands e pA NoCommand            = pAlNoCommands pA $ e
@@ -128,8 +128,7 @@ foldCommand e pA CMark            = pAlMark pA $ e
 foldCommand e pA CNothing         = pAlNothing pA $ e
 foldCommand e pA (CTurn dir)      = (pAlTurn pA) e (foldDirection e pA dir)
 foldCommand e pA (CCase dir alts) = (pAlCase pA) e (foldDirection e pA dir) (foldAlts e pA alts)
-foldCommand e pA (Identifier i)   = (pAlCmdrule pA) e ((pAlCmdruleID pA) e name)
-                                where name = TIdentToString i
+foldCommand e pA (CRule i)        = (pAlCmdrule pA) e ((pAlCmdruleID pA) e i)
 
 foldDirection :: Env -> PAlgebra r -> Direction -> r
 foldDirection e pA CLeft  = pAlLeft pA $ e
@@ -286,7 +285,7 @@ printSpace space = concat $ map ((\x -> maybeEnter (fst x) (printElement (snd x)
 -- TODO: dit kan eigenlijk pas als we weten hoe Alex/Happy werkt...
 -- Exercise 8
 toEnvironment :: String -> Environment
-toEnvironment = checkIfPass $ P.happyParse $ S.alexScanTokens
+toEnvironment s = checkIfPass $ P.lekkerParsen $ S.lekkerLexen s
               where env = foldProgram [] pEnvAlgebra 
                     checkIfPass p@(Program rules) | foldProgram (env p) pEvalAlgebra p && isJust (foldProgram (env p) pCaseAlgebra p) = makeEnv rules L.empty
                                                   | otherwise                                                                 = error "Program does not follow the rules!"
@@ -308,7 +307,7 @@ step env (ArrowState s p h c)   = case getCurrent c of
                                   CCase d alts -> case find (\x -> pEquals (getLookPos d) (getPat x)) (foldAlts alts) of
                                                  Nothing -> Fail "There was no match!"
                                                  Just x  -> Ok (ArrowState s p h (prepend (getCom x) (newStack c)))
-                                  Rule     r  -> case L.lookup r env of
+                                  CRule r      -> case L.lookup r env of
                                                  Nothing -> Fail "Rule does not exist!"
                                                  Just x -> Ok (ArrowState (L.adjust nowEmpty p s) p h (prepend x (newStack c)))
                                 where getCurrent (MultipleC c _) = c

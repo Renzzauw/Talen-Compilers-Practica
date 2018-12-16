@@ -39,7 +39,7 @@ import Scanner as S
 
 Program     : Rules                         { Program $1 }
 
-Rule        : ident "->" Commands '.'       { Rule $1 $3 } 
+Rule        : ident "->" Commands '.'       { Rule (tIdentToString $1) $3 } 
 
 Rules       : {- Empty -}                   { NoneR }                    
             | Rules Rule                    { MultipleR $2 $1 }
@@ -52,8 +52,8 @@ Command     : go                            { CGo }
             | mark                          { CMark }
             | nothing                       { CNothing }
             | turn Direction                { CTurn $2 }
-            | case Direction of Alts end    { CCase $2 $4}
-            | ident                         { Identifier }
+            | case Direction of Alts end    { CCase $2 $4 }
+            | ident                         { CRule (tIdentToString $1) }
 
 Direction   : left                          { CLeft }
             | right                         { CRight }
@@ -76,35 +76,48 @@ Pat         : empty                         { PEmpty }
 
 -- Exercise 2
 data Program = Program Rules
+             deriving (Show)
 
 data Rule = Rule Identifier Commands
-
-
+          deriving (Show)
 
 data Rules = NoneR 
            | MultipleR Rule Rules
+           deriving (Show)
 
 data Commands = NoCommand
               | MultipleC Command Commands
-
+              deriving (Show)  
 data Command = CGo 
              | CTake 
              | CMark 
              | CNothing 
              | CTurn Direction 
              | CCase Direction Alts 
-             | Identifier
-
+             | CRule Identifier
+             deriving (Show)   
+             
 data Direction = CLeft 
                | CRight 
                | CFront
+               deriving (Show)
 
-type Identifier = S.TIdent
+-- data Identifier = MultiChar Char Identifier
+--                 | SingleChar Char
+
+type Identifier = String
+
+tIdentToString :: TIdent -> String
+tIdentToString (TSingleChar x) = [x]
+tIdentToString (TMultiChar x xs)  = x : tIdentToString xs
+
 
 data Alts = NoneA
           | MultipleAlt Alt Alts
+          deriving (Show)
 
 data Alt = Alt Pat Commands
+         deriving (Show)
 
 data Pat = PEmpty 
          | PLambda 
@@ -112,6 +125,7 @@ data Pat = PEmpty
          | PAsteroid 
          | PBoundary 
          | PAny
+         deriving (Eq, Show)
 
 
 parseError :: [Token] -> a

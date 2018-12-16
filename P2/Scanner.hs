@@ -353,10 +353,9 @@ stringToTIdent (x:[]) = TSingleChar x
 stringToTIdent (x:xs)  = TMultiChar x (stringToTIdent xs)
 
 -- The Ident type:
-data TIdent = 
-    TMultiChar Char TIdent | 
-    TSingleChar Char
-    deriving (Eq, Show, Read)  
+data TIdent = TMultiChar Char TIdent 
+            | TSingleChar Char
+            deriving (Eq, Show, Read)  
 
 -- The token type:
 data Token =
@@ -384,8 +383,8 @@ data Token =
     Tident TIdent       
     deriving (Eq, Show, Read)
 
-scanTokens :: String -> [Token]
-scanTokens = alexScanTokens
+lekkerLexen :: String -> [Token]
+lekkerLexen = alexScanTokens
 
 main = do
     s <- getContents
@@ -412,7 +411,7 @@ alex_action_20 =  \s -> TDebris
 alex_action_21 =  \s -> TAsteroid 
 alex_action_22 =  \s -> TBoundary 
 alex_action_23 =  \s -> TUnderscore 
-alex_action_24 =  \s -> Tident (stringToTIdent s) 
+alex_action_24 =  \s -> Tident (stringToTIdent (show s)) 
 {-# LINE 1 "templates\GenericTemplate.hs" #-}
 {-# LINE 1 "templates\\GenericTemplate.hs" #-}
 {-# LINE 1 "<built-in>" #-}

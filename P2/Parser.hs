@@ -148,7 +148,7 @@ happyReduction_2 (_ `HappyStk`
 	(HappyTerminal (S.Tident happy_var_1)) `HappyStk`
 	happyRest)
 	 = HappyAbsSyn5
-		 (Rule happy_var_1 happy_var_3
+		 (Rule (tIdentToString happy_var_1) happy_var_3
 	) `HappyStk` happyRest
 
 happyReduce_3 = happySpecReduce_0  6 happyReduction_3
@@ -222,10 +222,11 @@ happyReduction_12 (_ `HappyStk`
 	) `HappyStk` happyRest
 
 happyReduce_13 = happySpecReduce_1  8 happyReduction_13
-happyReduction_13 _
+happyReduction_13 (HappyTerminal (S.Tident happy_var_1))
 	 =  HappyAbsSyn8
-		 (Identifier
+		 (CRule (tIdentToString happy_var_1)
 	)
+happyReduction_13 _  = notHappyAtAll 
 
 happyReduce_14 = happySpecReduce_1  9 happyReduction_14
 happyReduction_14 _
@@ -372,35 +373,48 @@ happySeq = happyDontSeq
 
 -- Exercise 2
 data Program = Program Rules
+             deriving (Show)
 
 data Rule = Rule Identifier Commands
-
-
+          deriving (Show)
 
 data Rules = NoneR 
            | MultipleR Rule Rules
+           deriving (Show)
 
 data Commands = NoCommand
               | MultipleC Command Commands
-
+              deriving (Show)  
 data Command = CGo 
              | CTake 
              | CMark 
              | CNothing 
              | CTurn Direction 
              | CCase Direction Alts 
-             | Identifier
-
+             | CRule Identifier
+             deriving (Show)   
+             
 data Direction = CLeft 
                | CRight 
                | CFront
+               deriving (Show)
 
-type Identifier = S.TIdent
+-- data Identifier = MultiChar Char Identifier
+--                 | SingleChar Char
+
+type Identifier = String
+
+tIdentToString :: TIdent -> String
+tIdentToString (TSingleChar x) = [x]
+tIdentToString (TMultiChar x xs)  = x : tIdentToString xs
+
 
 data Alts = NoneA
           | MultipleAlt Alt Alts
+          deriving (Show)
 
 data Alt = Alt Pat Commands
+         deriving (Show)
 
 data Pat = PEmpty 
          | PLambda 
@@ -408,6 +422,7 @@ data Pat = PEmpty
          | PAsteroid 
          | PBoundary 
          | PAny
+         deriving (Eq, Show)
 
 
 parseError :: [Token] -> a

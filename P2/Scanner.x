@@ -37,7 +37,7 @@ tokens :-
     '_'        { \s -> TUnderscore }
 
     -- Idents
-    $ident [$alpha $digit \+ \- ]+ { \s -> Tident (stringToTIdent s) }
+    $ident [$alpha $digit \+ \- ]+ { \s -> Tident (stringToTIdent (show s)) }
 
 {
 -- Turn a variable name into a TIdent
@@ -46,10 +46,9 @@ stringToTIdent (x:[]) = TSingleChar x
 stringToTIdent (x:xs)  = TMultiChar x (stringToTIdent xs)
 
 -- The Ident type:
-data TIdent = 
-    TMultiChar Char TIdent | 
-    TSingleChar Char
-    deriving (Eq, Show, Read)  
+data TIdent = TMultiChar Char TIdent 
+            | TSingleChar Char
+            deriving (Eq, Show, Read)  
 
 -- The token type:
 data Token =
@@ -77,8 +76,8 @@ data Token =
     Tident TIdent       
     deriving (Eq, Show, Read)
 
-scanTokens :: String -> [Token]
-scanTokens = alexScanTokens
+lekkerLexen :: String -> [Token]
+lekkerLexen = alexScanTokens
 
 main = do
     s <- getContents
