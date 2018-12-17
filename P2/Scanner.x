@@ -10,6 +10,7 @@ $symbols = [\-\>\,\.\_\;]         -- all other symbols occuring in the commands
 $ident = [$alpha $digit \+ \-]    -- all idents
 
 tokens :-
+
     $white+     ;                 -- Ignore whitespaces
     "--".*      ;                 -- Ignore comments
     
@@ -42,7 +43,8 @@ tokens :-
 {
 -- Turn a variable name into a TIdent
 stringToTIdent :: String -> TIdent
-stringToTIdent (x:[]) = TSingleChar x
+stringToTIdent (x:'\"':[]) = TSingleChar x
+stringToTIdent ('\"':xs) = stringToTIdent xs
 stringToTIdent (x:xs)  = TMultiChar x (stringToTIdent xs)
 
 -- The Ident type:

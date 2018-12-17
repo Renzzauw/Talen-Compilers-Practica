@@ -345,11 +345,12 @@ alex_accept = listArray (0::Int,96) [AlexAccNone,AlexAccNone,AlexAccNone,AlexAcc
 
 alex_actions = array (0::Int,66) [(65,alex_action_2),(64,alex_action_3),(63,alex_action_4),(62,alex_action_5),(61,alex_action_6),(60,alex_action_7),(59,alex_action_8),(58,alex_action_9),(57,alex_action_10),(56,alex_action_11),(55,alex_action_12),(54,alex_action_13),(53,alex_action_14),(52,alex_action_15),(51,alex_action_18),(50,alex_action_19),(49,alex_action_20),(48,alex_action_21),(47,alex_action_22),(46,alex_action_23),(45,alex_action_24),(44,alex_action_24),(43,alex_action_24),(42,alex_action_24),(41,alex_action_24),(40,alex_action_24),(39,alex_action_24),(38,alex_action_24),(37,alex_action_24),(36,alex_action_24),(35,alex_action_24),(34,alex_action_24),(33,alex_action_24),(32,alex_action_24),(31,alex_action_24),(30,alex_action_24),(29,alex_action_24),(28,alex_action_24),(27,alex_action_24),(26,alex_action_24),(25,alex_action_24),(24,alex_action_24),(23,alex_action_24),(22,alex_action_24),(21,alex_action_24),(20,alex_action_24),(19,alex_action_24),(18,alex_action_24),(17,alex_action_24),(16,alex_action_24),(15,alex_action_24),(14,alex_action_24),(13,alex_action_24),(12,alex_action_24),(11,alex_action_24),(10,alex_action_24),(9,alex_action_24),(8,alex_action_24),(7,alex_action_24),(6,alex_action_24),(5,alex_action_24),(4,alex_action_24),(3,alex_action_24),(2,alex_action_24),(1,alex_action_24),(0,alex_action_24)]
 
-{-# LINE 42 "Scanner.x" #-}
+{-# LINE 43 "Scanner.x" #-}
 
 -- Turn a variable name into a TIdent
 stringToTIdent :: String -> TIdent
-stringToTIdent (x:[]) = TSingleChar x
+stringToTIdent (x:'\"':[]) = TSingleChar x
+stringToTIdent ('\"':xs) = stringToTIdent xs
 stringToTIdent (x:xs)  = TMultiChar x (stringToTIdent xs)
 
 -- The Ident type:
