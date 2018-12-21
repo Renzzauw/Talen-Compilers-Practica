@@ -83,7 +83,6 @@ data PAlgebra r = PAlgebra{
                             pAlRule             :: Env -> r -> r -> r,
                             pAlRuleID           :: Env -> String -> r,
                             pAlCommands         :: Env -> [r] -> r,
-                            pAlCommand          :: Env -> r -> r -> r,
                             pAlGo               :: Env -> r,
                             pAlTake             :: Env -> r,
                             pAlMark             :: Env -> r,
@@ -105,27 +104,21 @@ data PAlgebra r = PAlgebra{
                             pAlAny              :: Env -> r 
                             }
 
+-- foldProgram is the "main" fold                            
 foldProgram :: Env -> PAlgebra r -> Program -> r
 foldProgram e pA (Program rules) = (pAlProgram pA) e $ foldRules e pA rules
 
--- foldRules :: Env -> PAlgebra r -> Rules -> r
--- foldRules e pA NoneR                  = pAlNoRules pA $ e
--- foldRules e pA (MultipleR rule rules) = (pAlMultipleRules pA) e (foldRule e pA rule) (foldRules e pA rules)
-
+-- All of the other folds follow the general rule for folds.
 foldRules :: Env -> PAlgebra r -> Rules -> r
-foldRules e pA (rule:[])    = (foldRule e pA rule) -- not sure
-foldRules e pA (rule:rules) = (pAlRule pA) e (foldRule e pA rule) (foldRules e pA rules)
+foldRules e pA (rule:[])    = (foldRule e pA rule)
+foldRules e pA r            = (pAlRules pA) e $ map (foldRule e pA) r
 
 foldRule :: Env -> PAlgebra r -> Rule -> r
 foldRule e pA (Rule id cmds) = (pAlRule pA) e ((pAlRuleID pA) e id) (foldCommands e pA cmds)
 
--- foldCommands :: Env -> PAlgebra r -> Commands -> r
--- foldCommands e pA NoCommand            = pAlNoCommands pA $ e
--- foldCommands e pA (MultipleC cmd cmds) = (pALMultipleCommands pA) e (foldCommand e pA cmd) (foldCommands e pA cmds)
-
 foldCommands :: Env -> PAlgebra r -> Commands -> r
 foldCommands e pA (cmd:[])   = (foldCommand e pA cmd) -- not sure of dit klopt...
-foldCommands e pA (cmd:cmds) = (pAlCommand pA) e (foldCommand e pA cmd) (foldCommands e pA cmds)
+foldCommands e pA c          = (pAlCommands pA) e $ map (foldCommand e pA) c
 
 foldCommand :: Env -> PAlgebra r -> Command -> r
 foldCommand e pA CGo              = pAlGo pA $ e
@@ -138,27 +131,23 @@ foldCommand e pA (CRule i)        = (pAlCmdrule pA) e ((pAlCmdruleID pA) e i)
 
 foldDirection :: Env -> PAlgebra r -> Direction -> r
 foldDirection e pA CLeft  = pAlLeft pA $ e
-foldDirection e pA CRight = pAlRight pA$ e
-foldDirection e pA CFront = pAlCFront pA$ e
-
--- foldAlts :: Env -> PAlgebra r -> Alts -> r
--- foldAlts e pA NoneA                  = pAlNoAlts pA $ e
--- foldAlts e pA (MultipleAlt alt alts) = (pAlMultipleAlts pA) e (foldAlt e pA alt) (foldAlts e pA alts)
+foldDirection e pA CRight = pAlRight pA $ e
+foldDirection e pA CFront = pAlCFront pA $ e
 
 foldAlts :: Env -> PAlgebra r -> Alts -> r
 foldAlts e pA (alt:[])   = (foldAlt e pA alt)
-foldAlts e pA (alt:alts) = (pAlAlt pA) e (foldAlt e pA alt) (foldAlts e pA alts)
+foldAlts e pA a          = (pAlAlts pA) e $ map (foldAlt e pA) a
 
 foldAlt :: Env -> PAlgebra r -> Alt -> r
 foldAlt e pA (Alt pat cmds) = (pAlAlt pA) e (foldPat e pA pat) (foldCommands e pA cmds)
 
 foldPat :: Env -> PAlgebra r -> Pat -> r
-foldPat e pA PEmpty = pAlEmpty pA $ e
-foldPat e pA PLambda = pAlLambda pA $ e
-foldPat e pA PDebris = pAlDebris pA $ e
+foldPat e pA PEmpty    = pAlEmpty pA $ e
+foldPat e pA PLambda   = pAlLambda pA $ e
+foldPat e pA PDebris   = pAlDebris pA $ e
 foldPat e pA PAsteroid = pAlAsteroid pA $ e
 foldPat e pA PBoundary = pAlBoundary pA $ e
-foldPat e pA PAny = pAlAny pA $ e
+foldPat e pA PAny      = pAlAny pA $ e
 
 -- Exercise 6
 -- TODO: alsjeblieft minder lang
@@ -168,13 +157,9 @@ pEvalAlgebra :: PAlgebra Bool
 pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlRules = palrules, pAlRule = palrule, pAlRuleID = palruleid, pAlCommands = palcommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlCFront = palCfront, pAlAlts = palalts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
              where palprogram          = (\env -> \x -> x)
                    palrules            = (\env -> \[x] -> x)
-                   --palnorules          = (\env -> True)
-                   --palmultiplerules    = (\env -> \x -> \xs -> x && xs && elem "start" env)
                    palrule             = (\env -> \id -> \cmds -> id && cmds)
                    palruleid           = (\env -> \name -> not (elem name env))
                    palcommands         = (\env -> \[x] -> x)
-                   --palnocommands       = (\env -> True)
-                   --palmultiplecommands = (\env -> \x -> \xs -> x && xs)
                    palgo               = (\env -> True)
                    paltake             = (\env -> True)
                    palmark             = (\env -> True)
@@ -187,8 +172,6 @@ pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlRules = palrules, pAlRule 
                    palright            = (\env -> True)
                    palCfront           = (\env -> True)
                    palalts             = (\env -> \[x] -> x)
-                   --palnoalts           = (\env -> True)
-                   --palmultiplealts     = (\env -> \x -> \xs -> x || xs)
                    palalt              = (\env -> \x -> \y -> x && y)
                    palempty            = (\env -> False)
                    pallambda           = (\env -> False)
@@ -201,13 +184,9 @@ pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlRules = palrules, pAlRule 
 pCaseAlgebra :: PAlgebra (Maybe [Pat])
 pCaseAlgebra = PAlgebra { pAlProgram = palprogram, pAlRules = palrules, pAlRule = palrule, pAlRuleID = palruleid, pAlCommands = palcommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlCFront = palCfront, pAlAlts = palalts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
              where palprogram          = (\env -> \x -> x)                   
-                   --palnorules          = (\env -> Just [])
-                   --palmultiplerules    = (\env -> \x -> \xs -> combineMaybes x xs)
                    palrules            = (\env -> \xs -> foldr combineMaybes (Just []) xs)
                    palrule             = (\env -> \id -> \cmds -> cmds)
                    palruleid           = (\env -> \name -> Just [])
-                   --palnocommands       = (\env -> Just [])
-                   --palmultiplecommands = (\env -> \x -> \xs -> combineMaybes x xs)
                    palcommands         = (\env -> \xs -> foldr combineMaybes (Just []) xs)
                    palgo               = (\env -> Just [])
                    paltake             = (\env -> Just [])
@@ -221,8 +200,6 @@ pCaseAlgebra = PAlgebra { pAlProgram = palprogram, pAlRules = palrules, pAlRule 
                    palright            = (\env -> Just [])
                    palCfront           = (\env -> Just [])
                    palalts             = (\env -> \xs -> foldr combineMaybes (Just []) xs)
-                   --palnoalts           = (\env -> Just [])
-                   --palmultiplealts     = (\env -> \x -> \xs -> combineMaybes x xs)
                    palalt              = (\env -> \x -> \y -> nothingChecker x y)
                    palempty            = (\env -> Just [PEmpty])
                    pallambda           = (\env -> Just [PLambda])
@@ -252,14 +229,10 @@ allFiveOrAny Nothing = error "It should always be a just!"
 pEnvAlgebra :: PAlgebra Env
 pEnvAlgebra = PAlgebra { pAlProgram = palprogram, pAlRules = palrules, pAlRule = palrule, pAlRuleID = palruleid, pAlCommands = palcommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlCFront = palCfront, pAlAlts = palalts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
              where palprogram          = (\env -> \x -> x)
-                   --palnorules          = (\env -> env)
-                   --palmultiplerules    = (\env -> \x -> \xs -> union x xs )
                    palrules            = (\env -> \[x] -> env)
                    palrule             = (\env -> \ident -> \cmds -> ident)
                    palruleid           = (\env -> \name -> name : env)
                    -- The algebra does not do anything useful from here
-                   --palnocommands       = (\env -> env)
-                   --palmultiplecommands = (\env -> \x -> \xs -> env)
                    palcommands         = (\env -> \[x] -> env)
                    palgo               = (\env -> env)
                    paltake             = (\env -> env)
@@ -273,8 +246,6 @@ pEnvAlgebra = PAlgebra { pAlProgram = palprogram, pAlRules = palrules, pAlRule =
                    palright            = (\env -> env)
                    palCfront           = (\env -> env)
                    palalts             = (\env -> \[x] -> env) -- denk ik?
-                   --palnoalts           = (\env -> env)
-                   --palmultiplealts     = (\env -> \x -> \xs -> env)
                    palalt              = (\env -> \x -> \y -> env)
                    palempty            = (\env -> env)
                    pallambda           = (\env -> env)
