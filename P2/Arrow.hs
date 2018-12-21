@@ -13,13 +13,15 @@ import Data.Tuple (swap)
 import Scanner as S hiding (main)
 import Parser as P hiding (main)
 
+-- ******************* M A D E   B Y *******************
+-- *          Hidde Veer 		    5721156						     *
+-- *          Renzo Schindeler 	5964962						     *
+-- *****************************************************
 
 type Space     =  Map Pos Contents
 type Size      =  Int
 type Pos       =  (Int, Int)
 data Contents  =  Empty | Lambda | Debris | Asteroid | Boundary
-
-
 
 parseSpace :: Parser Char Space
 parseSpace =
@@ -60,7 +62,9 @@ data Step  =  Done  Space Pos Heading
 tidentToString :: S.TIdent -> String 
 tidentToString (TSingleChar c)     = [c]
 tidentToString (TMultiChar c rest) = c : tidentToString rest
-  
+
+-- PLEASE NOTE THAT THE MAIN FUNCTION IS ALMOST AT THE BOTTOM AT EXERCISE 12
+
 -- Exercise 1
 {-
   See Scanner.x
@@ -75,15 +79,17 @@ tidentToString (TMultiChar c rest) = c : tidentToString rest
 {-
   See Parser.y
 -}
--- zie parser
 
 -- Exercise 4
 {-
 Left recursive parsers are ambiguous, and can result in more than one parse tree. Most parsers, like happy, throw errors when they spot LR segments in their parsers.
-Happy has the GLR extention which can be triggered with the --glr flag, which allows the parsing of left recursive grammars.
+Happy has the GLR extension which can be triggered with the --glr flag, which allows the parsing of left recursive grammars.
 It does that by exploring both paths simultaniously. As a result the parser does not construct a parse tree, but rather a 'parse graph'.
 Right recursive parsers are not ambiguous and therefore parse normally.
-TODO: Ik heb geen idee hoe het zit met combinators :(
+
+Parser combinators do not deal automatically with left recursion and will end up in endless recursion (until a stack overflow), so
+to deal with left recursion you have to manually remove it by changing the grammar. Right recursion however, seems to always
+work when using parser combinators, since they are not ambiguous.
 -}
 
 -- Exercise 5
@@ -373,20 +379,23 @@ REEEEEEEEEEEE cursion
   This function will run the program with an .arrow and .space file given their filepaths,
   a start position (x,y) where x and y are of type Int, and a runmode 1 (interactive mode)
   or 2 (batch mode). 
+
+  please note that mode 1 (interactive) might need quite some times of clicking on 'y' before the map seems to change.
 -}
+
 --        .arrow      .space    (x,y)  heading    1/2    
 main :: FilePath -> FilePath -> Pos -> Heading -> Int -> IO ()
 main path1 path2 pos heading mode = do
-                                    s1         <- readFile path1    -- read .arrow file
-                                    s2         <- readFile path2    -- read .space file                                      
-                                    let env    = toEnvironment s1  -- convert to an Environment
-                                    let space  = fst $ head $ parse parseSpace s2 -- convert to a Space
-                                    let stack  = env L.! "start"
+                                    s1         <- readFile path1                     -- read .arrow file
+                                    s2         <- readFile path2                     -- read .space file                                      
+                                    let env    = toEnvironment s1                    -- convert to an Environment
+                                    let space  = fst $ head $ parse parseSpace s2    -- convert to a Space
+                                    let stack  = env L.! "start"                     -- get the stack
                                     let initial = ArrowState space pos heading stack -- create the arrowState
                                     case mode of
-                                         1 ->  interactive env initial
-                                         2 ->  printBatch (batch env initial)
-                                         _ ->  error "invalid run mode of main"
+                                         1 ->  interactive env initial               -- mode 1 (interactive)
+                                         2 ->  printBatch (batch env initial)        -- mode 2 (batch)
+                                         _ ->  error "invalid run mode of main"      -- invalid
 
 printBatch :: (Space, Pos, Heading) -> IO ()
 printBatch (space, pos, heading) = do
