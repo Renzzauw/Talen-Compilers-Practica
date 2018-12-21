@@ -295,7 +295,7 @@ toEnvironment s = checkIfPass $ P.lekkerParsen $ S.lekkerLexen s
                                                   | otherwise                                                                 = error "Program does not follow the rules!"
 
 makeEnv :: Rules -> Environment -> Environment
-makeEnv [] env                            = env
+makeEnv [] env                     = env
 makeEnv ((Rule id cmds):rules) env = L.insert id cmds (makeEnv rules env)
 
 -- Exercise 9
@@ -365,14 +365,10 @@ getHeading West CRight  = North
 
 -- Exercise 10
 {-
-REEEEEEEEEEEE cursion
+
 -}
 
 -- Exercise 11
-
--- type Stack       =  Commands
--- data ArrowState  =  ArrowState Space Pos Heading Stack
-
 {- 
   This is the main function of the program.
   To run it, type in the console: main "examples/_.arrow" "examples/_.space" (x,y) North/South/East/West 1/2
