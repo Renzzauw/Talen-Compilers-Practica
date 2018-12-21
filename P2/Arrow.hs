@@ -5,11 +5,13 @@ import ParseLib.Abstract
 import Data.Map (Map)
 import Data.Maybe (isJust)
 import Data.List
+import System.IO
 import qualified Data.Map as L
 import Control.Monad (replicateM)
 import Data.Char (isSpace)
-import Scanner as S
-import Parser as P
+import Data.Tuple (swap)
+import Scanner as S hiding (main)
+import Parser as P hiding (main)
 
 
 type Space     =  Map Pos Contents
@@ -44,6 +46,7 @@ contentsTable =
 
 -- These three should be defined by you
 data Heading = North | South | East | West
+             deriving (Show)
 
 type Environment = Map Identifier Commands
 
@@ -57,13 +60,21 @@ data Step  =  Done  Space Pos Heading
 tidentToString :: S.TIdent -> String 
 tidentToString (TSingleChar c)     = [c]
 tidentToString (TMultiChar c rest) = c : tidentToString rest
-
+  
+-- Exercise 1
+{-
+  See Scanner.x
+-}
 
 -- Exercise 2
-
+{-
+  See Parser.y at the bottom
+-}
 
 -- Exercise 3
-
+{-
+  See Parser.y
+-}
 -- zie parser
 
 -- Exercise 4
@@ -74,6 +85,7 @@ It does that by exploring both paths simultaniously. As a result the parser does
 Right recursive parsers are not ambiguous and therefore parse normally.
 TODO: Ik heb geen idee hoe het zit met combinators :(
 -}
+
 -- Exercise 5
 -- We use records here so we do not have to pattern match on the insane amount of functions in the tuple
 -- Env is a list of all known rules. Its contents are not important here, as only their name matters here
@@ -152,7 +164,6 @@ foldPat e pA PBoundary = pAlBoundary pA $ e
 foldPat e pA PAny      = pAlAny pA $ e
 
 -- Exercise 6
--- TODO: alsjeblieft minder lang
 
 -- Evaluates for the first 3 points. The 4th has to be done in a different algebra
 pEvalAlgebra :: PAlgebra Bool
@@ -256,25 +267,20 @@ pEnvAlgebra = PAlgebra { pAlProgram = palprogram, pAlRules = palrules, pAlRule =
                    palboundary         = (\env -> env)
                    palany              = (\env -> env)
 
-      
-
 -- Exercise 7
 -- Size equals the width here, the height does not matter
 printSpace :: Space -> String
-printSpace space = concat $ map ((\x -> maybeEnter (fst x) (printElement (snd x)))) (L.assocs space)
-                 where printElement :: Contents -> String
-                       printElement Empty    = "."
+printSpace space = concat $ map ((\x -> maybeEnter (fst x) (printElement (snd x)))) (L.assocs (L.mapKeys swap space))
+                 where printElement Empty    = "."
                        printElement Lambda   = "\\"
                        printElement Debris   = "%"
                        printElement Asteroid = "O"
                        printElement Boundary = "#"
-                       maybeEnter (a,b) s    = case a == width of
-                                                 True -> s ++ "\n\r"
+                       maybeEnter (a,b) s    = case b == width of
+                                                 True -> s ++ "\r\n"
                                                  _    -> s
                        width = maximum $ map fst $ map fst $ L.toList space
 
-
--- TODO: dit kan eigenlijk pas als we weten hoe Alex/Happy werkt...
 -- Exercise 8
 toEnvironment :: String -> Environment
 toEnvironment s = checkIfPass $ P.lekkerParsen $ S.lekkerLexen s
@@ -294,7 +300,6 @@ step env (ArrowState s p h c)   = case getCurrent c of
                                   CTake        -> Ok (ArrowState (L.adjust nowEmpty  p s) p h (newStack c))
                                   CMark        -> Ok (ArrowState (L.adjust nowLambda p s) p h (newStack c))
                                   CNothing     -> stayStill
-                                  CTurn CFront  -> stayStill
                                   CTurn d      -> Ok(ArrowState s p (getHeading h d) (newStack c))
                                   CCase d alts -> case find (\x -> pEquals (getLookPos d) (getPat x)) (foldAlts alts) of
                                                  Nothing -> Fail "There was no match!"
@@ -304,11 +309,11 @@ step env (ArrowState s p h c)   = case getCurrent c of
                                                  Just x -> Ok (ArrowState (L.adjust nowEmpty p s) p h (prepend x (newStack c)))
                                 where getCurrent (c:_) = c
                                       getCurrent []    = error "None is handled earlier!"
-                                      onNew = case s L.! newPos h of
-                                              Empty  -> Ok (ArrowState s (newPos h) h (newStack c)) 
-                                              Lambda -> Ok (ArrowState s (newPos h) h (newStack c))
-                                              Debris -> Ok (ArrowState s (newPos h) h (newStack c))
-                                              _      -> stayStill
+                                      onNew = case L.lookup (newPos h) s of
+                                             Just Empty  -> Ok (ArrowState s (newPos h) h (newStack c)) 
+                                             Just Lambda -> Ok (ArrowState s (newPos h) h (newStack c))
+                                             Just Debris -> Ok (ArrowState s (newPos h) h (newStack c))
+                                             _           -> stayStill
                                       newPos North = (fst p, (snd p) + 1)
                                       newPos South = (fst p, (snd p) - 1)
                                       newPos East  = ((fst p) + 1, (snd p))
@@ -339,12 +344,16 @@ step env (ArrowState s p h c)   = case getCurrent c of
 -- Helper function that can determine the next heading given a turn
 -- Note that the "CFront" direction does not get called here
 getHeading :: Heading -> Direction -> Heading
+getHeading North CFront = North
 getHeading North CLeft  = West
 getHeading North CRight = East
+getHeading East CFront  = East
 getHeading East CLeft   = North
 getHeading East CRight  = South
+getHeading South CFront = South
 getHeading South CLeft  = East
 getHeading South CRight = West
+getHeading West CFront  = West
 getHeading West CLeft   = South
 getHeading West CRight  = North
 
@@ -352,7 +361,42 @@ getHeading West CRight  = North
 {-
 REEEEEEEEEEEE cursion
 -}
+
 -- Exercise 11
+
+-- type Stack       =  Commands
+-- data ArrowState  =  ArrowState Space Pos Heading Stack
+
+{- 
+  This is the main function of the program.
+  To run it, type in the console: main "examples/_.arrow" "examples/_.space" (x,y) North/South/East/West 1/2
+  This function will run the program with an .arrow and .space file given their filepaths,
+  a start position (x,y) where x and y are of type Int, and a runmode 1 (interactive mode)
+  or 2 (batch mode). 
+-}
+--        .arrow      .space    (x,y)  heading    1/2    
+main :: FilePath -> FilePath -> Pos -> Heading -> Int -> IO ()
+main path1 path2 pos heading mode = do
+                                    s1         <- readFile path1    -- read .arrow file
+                                    s2         <- readFile path2    -- read .space file                                      
+                                    let env    = toEnvironment s1  -- convert to an Environment
+                                    let space  = fst $ head $ parse parseSpace s2 -- convert to a Space
+                                    let stack  = env L.! "start"
+                                    let initial = ArrowState space pos heading stack -- create the arrowState
+                                    case mode of
+                                         1 ->  interactive env initial
+                                         2 ->  printBatch (batch env initial)
+                                         _ ->  error "invalid run mode of main"
+
+printBatch :: (Space, Pos, Heading) -> IO ()
+printBatch (space, pos, heading) = do
+                                   _ <- putStrLn "Here is your new map"
+                                   _ <- putStrLn $ printSpace space
+                                   _ <- putStrLn "Here is your new pos"
+                                   _ <- putStrLn $ show pos
+                                   _ <- putStrLn "Here is your new heading"
+                                   _ <- putStrLn $ show heading
+                                   return ()
 
 interactive :: Environment -> ArrowState -> IO ()
 interactive env a = intIterate env a
@@ -363,7 +407,7 @@ intIterate env astate = case step env astate of
                         Fail s                      -> putStrLn s
                         Ok as@(ArrowState s _ _ _ ) -> do
                                                        _ <- putStrLn "Here is your new map"
-                                                       _ <- putStr $ printSpace s
+                                                       _ <- putStrLn $ printSpace s
                                                        _ <- putStrLn "type 'y' to continue, and 'n' to exit!"
                                                        checkChar env astate
 checkChar :: Environment -> ArrowState -> IO ()
@@ -371,10 +415,14 @@ checkChar e a = do
               c <- getChar
               case c of
                 'n' -> return ()
-                'y' -> intIterate e a
+                'y' -> iteration
                 _   -> do 
                        _ <- putStrLn "Please type 'y' or 'n'!"
                        checkChar e a
+              where iteration = case (step e a) of
+                                (Done _ _ _) -> putStrLn "You are done!"
+                                (Ok next)    -> intIterate e next
+                                (Fail _)     -> error "This should throw an error earlier!"
                                                    
 
 batch :: Environment -> ArrowState -> (Space, Pos, Heading)
@@ -382,3 +430,4 @@ batch env a = iterate (step env a)
             where iterate (Done s p h) = (s, p, h)
                   iterate (Ok astate)  = iterate (step env astate)
                   iterate (Fail s)     = error s
+                  
