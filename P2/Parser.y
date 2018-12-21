@@ -7,13 +7,10 @@ import Scanner as S
 %tokentype { Token }
 %error { parseError }
 
-%token
-        rule        { tRule }
-        command     { tCmd }
-        
-        "->"        { S.TArrow }
-        '.'         { S.TDot }
-        ','         { S.TComma }
+%token       
+        arrow       { S.TArrow }
+        dot         { S.TDot }
+        comma       { S.TComma }
         go          { S.TGo }
         take        { S.TTake }
         mark        { S.TMark }
@@ -25,13 +22,13 @@ import Scanner as S
         left        { S.TLeft }
         right       { S.TRight }
         front       { S.TFront }
-        ';'         { S.TSemicolon }
+        semi        { S.TSemicolon }
         empty       { S.TEmpty }
         lambda      { S.TLambda }
         debris      { S.TDebris }
         asteroid    { S.TAsteroid }
         boundary    { S.TBoundary }
-        '_'         { S.TUnderscore } -- any
+        undersc     { S.TUnderscore }
         ident       { S.Tident $$ }
             
     
@@ -39,13 +36,13 @@ import Scanner as S
 
 Program     : Rules                         { Program $1 }
 
-Rule        : ident "->" Commands '.'       { Rule (tIdentToString $1) $3 } 
+Rule        : ident arrow Commands dot      { Rule (tIdentToString $1) $3 } 
 
-Rules       : {- Empty -}                   { NoneR }                    
+Rules       :                               { NoneR }                    
             | Rules Rule                    { MultipleR $2 $1 }
 
-Commands    : {- Empty -}                   { NoCommand }
-            | Commands ',' Command          { MultipleC $3 $1 }
+Commands    :                               { NoCommand }
+            | Commands comma Command        { MultipleC $3 $1 }
 
 Command     : go                            { CGo }
             | take                          { CTake }
@@ -59,19 +56,18 @@ Direction   : left                          { CLeft }
             | right                         { CRight }
             | front                         { CFront }
 
-Alts        : {- Empty -}                   { NoneA }
-            | Alts ';' Alt                  { MultipleAlt $3 $1 }              
+Alts        :                               { NoneA }
+            | Alts semi Alt                 { MultipleAlt $3 $1 }              
 
-Alt         : Pat "->" Commands             { Alt $1 $3 }
+Alt         : Pat arrow Commands            { Alt $1 $3 }
 
 Pat         : empty                         { PEmpty }
             | lambda                        { PLambda }
             | debris                        { PDebris }
             | asteroid                      { PAsteroid }
             | boundary                      { PBoundary }
-            | '_'                           { PAny }
+            | undersc                       { PAny }
 
--- Identifier  : ident                         { $1 }
 {
 
 -- Exercise 2
@@ -88,6 +84,7 @@ data Rules = NoneR
 data Commands = NoCommand
               | MultipleC Command Commands
               deriving (Show)  
+
 data Command = CGo 
              | CTake 
              | CMark 
@@ -102,15 +99,12 @@ data Direction = CLeft
                | CFront
                deriving (Show)
 
--- data Identifier = MultiChar Char Identifier
---                 | SingleChar Char
-
 type Identifier = String
 
+-- Turn an identifier back into a string
 tIdentToString :: TIdent -> String
 tIdentToString (TSingleChar x) = [x]
 tIdentToString (TMultiChar x xs)  = x : tIdentToString xs
-
 
 data Alts = NoneA
           | MultipleAlt Alt Alts
@@ -126,7 +120,6 @@ data Pat = PEmpty
          | PBoundary 
          | PAny
          deriving (Eq, Show)
-
 
 parseError :: [Token] -> a
 parseError _ = error "Parsing error"
