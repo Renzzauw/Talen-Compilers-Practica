@@ -29,13 +29,13 @@ tokens :-
     "left"     { \s -> TLeft }
     "right"    { \s -> TRight }
     "front"    { \s -> TFront }
-    ';'        { \s -> TSemicolon }
+    ";"        { \s -> TSemicolon }
     "Empty"    { \s -> TEmpty }
     "Lambda"   { \s -> TLambda }
     "Debris"   { \s -> TDebris }
     "Asteroid" { \s -> TAsteroid }
     "Boundary" { \s -> TBoundary }
-    '_'        { \s -> TUnderscore }
+    "_"        { \s -> TUnderscore }
 
     -- Idents
     $ident [$alpha $digit \+ \- ]+ { \s -> Tident (stringToTIdent (show s)) }

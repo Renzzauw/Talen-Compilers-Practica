@@ -56,7 +56,7 @@ Direction   : left                          { CLeft }
             | right                         { CRight }
             | front                         { CFront }
 
-Alts        :                               { [] }
+Alts        : Alt                           { [$1] }
             | Alt semi Alts                 { $1 : $3 }              
 
 Alt         : Pat arrow Commands            { Alt $1 $3 }
