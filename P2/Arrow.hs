@@ -157,10 +157,10 @@ foldPat e pA PAny      = pAlAny pA $ e
 -- Evaluates for the first 3 points. The 4th has to be done in a different algebra
 pEvalAlgebra :: PAlgebra Bool
 pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlRules = palrules, pAlRule = palrule, pAlRuleID = palruleid, pAlCommands = palcommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlCFront = palCfront, pAlAlts = palalts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
-             where palprogram          = (\env -> \x -> x && elem "start" env)
+             where palprogram          = (\env -> \x -> x && elem "start" env && length env == length (nub env))
                    palrules            = (\env -> \x -> foldr (&&) True x)
                    palrule             = (\env -> \id -> \cmds -> id && cmds)
-                   palruleid           = (\env -> \name -> not (elem name env))
+                   palruleid           = (\env -> \name -> True)
                    palcommands         = (\env -> \x -> foldr (&&) True x)
                    palgo               = (\env -> True)
                    paltake             = (\env -> True)
