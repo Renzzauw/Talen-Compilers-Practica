@@ -365,7 +365,11 @@ getHeading West CRight  = North
 
 -- Exercise 10
 {-
-
+The location of the recursion does have effect on the length of the stack. Consider a stack consisting of a series of commands, where on of them is a rule.
+If the rule is at the bottom of the stack, iterating will cause the stack to decrease so that only the rule remains at the end. The rule will add new commands to the stack, causing the stack to entirely exists out of these new commands.
+However, when a rule is placed at a different (random) location, the new commands will be added to the stack, while some old commands still remain on the stack.
+The stack will then consist out of the commands added by the rule on top, and the remaining commands from before the rule call at the bottom.
+Therefore, the lower the rule is on the stack, the shorter the stack will be after the rule call.
 -}
 
 -- Exercise 11
