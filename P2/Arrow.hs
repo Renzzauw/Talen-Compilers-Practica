@@ -17,6 +17,8 @@ type Size      =  Int
 type Pos       =  (Int, Int)
 data Contents  =  Empty | Lambda | Debris | Asteroid | Boundary
 
+
+
 parseSpace :: Parser Char Space
 parseSpace =
   do
@@ -155,11 +157,11 @@ foldPat e pA PAny      = pAlAny pA $ e
 -- Evaluates for the first 3 points. The 4th has to be done in a different algebra
 pEvalAlgebra :: PAlgebra Bool
 pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlRules = palrules, pAlRule = palrule, pAlRuleID = palruleid, pAlCommands = palcommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlCFront = palCfront, pAlAlts = palalts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
-             where palprogram          = (\env -> \x -> x)
-                   palrules            = (\env -> \[x] -> x)
+             where palprogram          = (\env -> \x -> x && elem "start" env)
+                   palrules            = (\env -> \x -> foldr (&&) True x)
                    palrule             = (\env -> \id -> \cmds -> id && cmds)
                    palruleid           = (\env -> \name -> not (elem name env))
-                   palcommands         = (\env -> \[x] -> x)
+                   palcommands         = (\env -> \x -> foldr (&&) True x)
                    palgo               = (\env -> True)
                    paltake             = (\env -> True)
                    palmark             = (\env -> True)
@@ -171,13 +173,13 @@ pEvalAlgebra = PAlgebra { pAlProgram = palprogram, pAlRules = palrules, pAlRule 
                    palleft             = (\env -> True)
                    palright            = (\env -> True)
                    palCfront           = (\env -> True)
-                   palalts             = (\env -> \[x] -> x)
+                   palalts             = (\env -> \x -> foldr (&&) True x)
                    palalt              = (\env -> \x -> \y -> x && y)
-                   palempty            = (\env -> False)
-                   pallambda           = (\env -> False)
-                   paldebris           = (\env -> False)
-                   palasteroid         = (\env -> False)
-                   palboundary         = (\env -> False)
+                   palempty            = (\env -> True)
+                   pallambda           = (\env -> True)
+                   paldebris           = (\env -> True)
+                   palasteroid         = (\env -> True)
+                   palboundary         = (\env -> True)
                    palany              = (\env -> True)
 
 -- Evaluates for the 4th point
@@ -229,11 +231,11 @@ allFiveOrAny Nothing = error "It should always be a just!"
 pEnvAlgebra :: PAlgebra Env
 pEnvAlgebra = PAlgebra { pAlProgram = palprogram, pAlRules = palrules, pAlRule = palrule, pAlRuleID = palruleid, pAlCommands = palcommands, pAlGo = palgo, pAlTake = paltake, pAlMark = palmark, pAlNothing = palnothing, pAlTurn = palturn, pAlCase = palcase, pAlCmdrule = palcmdrule, pAlCmdruleID = palcmdruleid, pAlLeft = palleft, pAlRight = palright, pAlCFront = palCfront, pAlAlts = palalts, pAlAlt = palalt, pAlEmpty = palempty, pAlLambda = pallambda, pAlDebris = paldebris, pAlAsteroid = palasteroid, pAlBoundary = palboundary, pAlAny = palany}
              where palprogram          = (\env -> \x -> x)
-                   palrules            = (\env -> \[x] -> env)
+                   palrules            = (\env -> \x -> foldr union [] x)
                    palrule             = (\env -> \ident -> \cmds -> ident)
                    palruleid           = (\env -> \name -> name : env)
                    -- The algebra does not do anything useful from here
-                   palcommands         = (\env -> \[x] -> env)
+                   palcommands         = (\env -> \x -> foldr union [] x)
                    palgo               = (\env -> env)
                    paltake             = (\env -> env)
                    palmark             = (\env -> env)
@@ -245,7 +247,7 @@ pEnvAlgebra = PAlgebra { pAlProgram = palprogram, pAlRules = palrules, pAlRule =
                    palleft             = (\env -> env)
                    palright            = (\env -> env)
                    palCfront           = (\env -> env)
-                   palalts             = (\env -> \[x] -> env) -- denk ik?
+                   palalts             = (\env -> \x -> foldr union [] x)
                    palalt              = (\env -> \x -> \y -> env)
                    palempty            = (\env -> env)
                    pallambda           = (\env -> env)
