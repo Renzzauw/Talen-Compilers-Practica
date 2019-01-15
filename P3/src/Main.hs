@@ -4,12 +4,14 @@ import System.Environment
 import System.FilePath
 
 import ParseLib.Abstract.Derived
+import Prelude hiding ((<*),(*>),(<$))
 
 import CSharpLex
 import CSharpGram
 import CSharpAlgebra
 import SSM
 import CSharpCode
+
 
 start :: Parser s a -> [s] -> a
 start p = fst . head . filter (null . snd) . parse p

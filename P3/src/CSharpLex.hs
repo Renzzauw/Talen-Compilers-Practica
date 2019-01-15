@@ -3,6 +3,7 @@ module CSharpLex where
 import Data.Char
 import Control.Monad
 import ParseLib.Abstract
+import Prelude hiding ((<*),(*>),(<$))
 
 
 data Token = POpen    | PClose      -- parentheses     ()
@@ -18,7 +19,8 @@ data Token = POpen    | PClose      -- parentheses     ()
            | UpperId   String       -- uppercase identifiers
            | LowerId   String       -- lowercase identifiers
            | ConstInt  Int
-           | ConstBool Bool
+           | ConstBool Int          -- Here 1 stands for true, and 0 stand for false
+           | ConstChar Int          -- This is converted to ASCII values
            deriving (Eq, Show)
 
 keyword :: String -> Parser Char String
@@ -65,6 +67,22 @@ lexUpperId = (\x xs -> UpperId (x:xs)) <$> satisfy isUpper <*> greedy (satisfy i
 
 lexConstInt :: Parser Char Token
 lexConstInt = (ConstInt . read) <$> greedy1 (satisfy isDigit)
+
+--lexConstBool will try and read boolean values
+lexConstBool :: Parser Char Token
+lexConstBool = (ConstBool . boolToInt) <$> choice[token "True",token "False"]
+
+-- Small helper function to convert booleans (in string form) to int
+boolToInt :: String -> Int
+boolToInt "True" = 1
+boolToInt "False" = 0
+
+--lexConstChar will lex a single character between apostrophes
+lexConstChar :: Parser Char Token
+lexConstChar = (ConstChar . ord) <$> pack apoLexer anySymbol apoLexer
+
+apoLexer :: Parser Char Char
+apoLexer = satisfy (== '\'')
 
 lexEnum :: (String -> Token) -> [String] -> Parser Char Token
 lexEnum f xs = f <$> choice (map keyword xs)
@@ -113,6 +131,7 @@ sConst :: Parser Token Token
 sConst  = satisfy isConst
     where isConst (ConstInt  _) = True
           isConst (ConstBool _) = True
+          isConst (ConstChar _) = True
           isConst _             = False
 
 sOperator :: Parser Token Token
@@ -123,4 +142,8 @@ sOperator = satisfy isOperator
 
 sSemi :: Parser Token Token
 sSemi =  symbol Semicolon
+
+-- Parser that detects single line comments
+lexComments :: Parser Char ()
+lexComments = token "//" *> greedy1 anySymbol *> epsilon
 
