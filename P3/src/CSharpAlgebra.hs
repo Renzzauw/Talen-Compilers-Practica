@@ -3,7 +3,7 @@ module CSharpAlgebra where
 import CSharpLex
 import CSharpGram
 
-
+-- CSharp Algebra
 type CSharpAlgebra clas memb stat expr
     = (  Token -> [memb] -> clas
 
@@ -26,6 +26,7 @@ type CSharpAlgebra clas memb stat expr
       )
 
 
+-- CSharp Fold
 foldCSharp :: CSharpAlgebra clas memb stat expr -> Class -> clas
 foldCSharp (c1, (m1,m2), (s1,s2,s3,s4,s5,s6), (e1,e2,e3)) = fClas
     where
