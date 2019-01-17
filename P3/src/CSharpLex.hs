@@ -108,9 +108,17 @@ lexToken = greedyChoice
              , lexUpperId
              ]
 
+-- This is the first scanner that converts every piece of useful information to tokens
 lexicalScanner :: Parser Char [Token]
 lexicalScanner = lexWhiteSpace *> greedy (lexToken <* lexWhiteSpace) <* eof
 
+-- This is a second scanner, that removes all comments, and leaves the result as it is
+commentScanner :: Parser Char String
+commentScanner = greedy anySymbol <* greedy (lexComment <* greedy anySymbol) *> greedy anySymbol <* eof
+
+-- Parser that detects single line comments
+lexComment :: Parser Char String
+lexComment = token "//" <|> greedy anySymbol <* token "\\n"
 
 sStdType :: Parser Token Token
 sStdType = satisfy isStdType
@@ -142,8 +150,4 @@ sOperator = satisfy isOperator
 
 sSemi :: Parser Token Token
 sSemi =  symbol Semicolon
-
--- Parser that detects single line comments
-lexComments :: Parser Char ()
-lexComments = token "//" *> greedy1 anySymbol *> epsilon
 

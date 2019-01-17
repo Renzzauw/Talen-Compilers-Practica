@@ -40,4 +40,4 @@ processFile (infile, outfile) =
   where process = formatCode
                 . foldCSharp codeAlgebra
                 . start (pClass <* eof)
-                . start lexicalScanner
+                . start lexicalScanner . start commentScanner
