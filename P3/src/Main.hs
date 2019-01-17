@@ -12,10 +12,11 @@ import CSharpAlgebra
 import SSM
 import CSharpCode
 
-
+-- Runs a parser
 start :: Parser s a -> [s] -> a
 start p = fst . head . filter (null . snd) . parse p
 
+-- Entry point of the program
 main :: IO ()
 main = do
          -- get command line arguments

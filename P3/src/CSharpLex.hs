@@ -23,6 +23,7 @@ data Token = POpen    | PClose      -- parentheses     ()
            | ConstChar Int          -- This is converted to ASCII values
            deriving (Eq, Show)
 
+-- ???           
 keyword :: String -> Parser Char String
 keyword [] = succeed ""
 keyword xs@(x:_) | isLetter x = do ys <- greedy (satisfy isAlphaNum)
@@ -34,7 +35,7 @@ keyword xs@(x:_) | isLetter x = do ys <- greedy (satisfy isAlphaNum)
 greedyChoice :: [Parser s a] -> Parser s a
 greedyChoice = foldr (<<|>) empty
 
-
+-- All terminals as tuples of a token and its string/C# representation
 terminals :: [(Token, String)]
 terminals =
     [ ( POpen     , "("      )
@@ -55,16 +56,19 @@ terminals =
     , ( KeyVoid   , "void"   )
     ]
 
-
+-- Lex white spaces
 lexWhiteSpace :: Parser Char String
 lexWhiteSpace = greedy (satisfy isSpace)
 
+-- Lex lowercase identifiers
 lexLowerId :: Parser Char Token
 lexLowerId = (\x xs -> LowerId (x:xs)) <$> satisfy isLower <*> greedy (satisfy isAlphaNum)
 
+-- Lex uppercase identifiers
 lexUpperId :: Parser Char Token
 lexUpperId = (\x xs -> UpperId (x:xs)) <$> satisfy isUpper <*> greedy (satisfy isAlphaNum)
 
+-- Lex constant ints
 lexConstInt :: Parser Char Token
 lexConstInt = (ConstInt . read) <$> greedy1 (satisfy isDigit)
 
@@ -81,23 +85,27 @@ boolToInt "False" = 0
 lexConstChar :: Parser Char Token
 lexConstChar = (ConstChar . ord) <$> pack apoLexer anySymbol apoLexer
 
+-- Lex apostrophes
 apoLexer :: Parser Char Char
 apoLexer = satisfy (== '\'')
 
+-- Lex Enums
 lexEnum :: (String -> Token) -> [String] -> Parser Char Token
 lexEnum f xs = f <$> choice (map keyword xs)
 
+-- Lex terminals
 lexTerminal :: Parser Char Token
 lexTerminal = choice [t <$ keyword s | (t,s) <- terminals]
 
-
+-- List of all the datatypes
 stdTypes :: [String]
 stdTypes = ["int", "long", "double", "float", "byte", "short", "bool", "char"]
 
+-- List of all the operators
 operators :: [String]
 operators = ["+", "-", "*", "/", "%", "&&", "||", "^", "<=", "<", ">=", ">", "==", "!=", "="]
 
-
+-- Greedy lexing of tokens
 lexToken :: Parser Char Token
 lexToken = greedyChoice
              [ lexTerminal

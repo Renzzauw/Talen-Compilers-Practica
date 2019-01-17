@@ -1,6 +1,6 @@
 module SSM where
 
-
+-- Registers 
 data Reg = PC | SP | MP | R3 | R4 | R5 | R6 | R7
    deriving Show
 
@@ -14,7 +14,7 @@ r5 = R5
 r6 = R6
 r7 = R7
 
-
+-- SSM instructions
 data Instr
     = STR Reg | STL Int  | STS Int  | STA Int        -- Store from stack
     | LDR Reg | LDL Int  | LDS Int  | LDA Int        -- Load on stack
@@ -33,24 +33,28 @@ data Instr
     | LABEL String                                   -- Pseudo-instruction for generating a label
     deriving Show
 
+-- Type for a sequence of instructions
 type Code = [Instr]
 
-
+-- Pop an instruction from the stack
 pop :: Instr
 pop = AJS (-1)
 
+-- Print an instruction
 formatInstr :: Instr -> String
 formatInstr (LABEL s) = s ++ ":"
 formatInstr x         = '\t' : show x
 
+-- Print a code (sequence of instructions)
 formatCode :: Code -> String
 formatCode = filter clean . concatMap ((++ "\n") . formatInstr)
     where clean c = notElem c "()\""
 
-
+-- Calculate the amount of space a code takes up in the memory
 codeSize :: Code -> Int
 codeSize = sum . map instrSize
 
+-- Calculate the amount of space an instruction takes up in the memory
 instrSize :: Instr -> Int
 instrSize i = case i of {
                   LDRR _ _ -> 3;    SWPRR _ _ -> 3;    BRA  _    -> 2;   BRF  _ -> 2;   BRT  _ -> 2;
