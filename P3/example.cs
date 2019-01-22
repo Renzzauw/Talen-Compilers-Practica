@@ -2,15 +2,11 @@ class Hello
 {
     void main()
     {
-        for (i = 0; i < 69; i = i + 1)
-        {
-            1 + 1;
-        }
+        printadd(2, 3);
     }
 
-    void genie(int a)
+    void printadd(int a, int b)
     {
-        a = 1;
+        print(a + b);
     }
-
 }

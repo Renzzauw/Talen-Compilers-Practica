@@ -1,7 +1,7 @@
 module CSharpCode where
 
 import Prelude hiding (LT, GT, EQ)
-import Data.Map as M
+import Data.Map as M hiding (map)
 import CSharpLex
 import CSharpGram
 import CSharpAlgebra
@@ -17,7 +17,7 @@ codeAlgebra =
     ( fClas
     , (fMembDecl, fMembMeth)
     , (fStatDecl, fStatExpr, fStatIf, fStatWhile, fStatReturn, fStatFor, fStatBlock)
-    , (fExprCon, fExprVar, fExprOp)
+    , (fExprCon, fExprVar, fExprOp, fExprMeth)
     )
 
 -- Class, translated by calling the label "main" and halting execution. Followed by the code for all the methods   
@@ -30,7 +30,6 @@ fMembDecl d = []
 
 -- Method definition, starts with a label and we insert the code for the body of the method and a return instruction
 fMembMeth :: Type -> Token -> [Decl] -> Code -> Code
-fMembMeth t (LowerId "print") ps s = s ++ [TRAP 0]
 fMembMeth t (LowerId x) ps s = [LABEL x] ++ s ++ [RET]
 
 -- Statement declaration, does not generate any code
@@ -91,6 +90,10 @@ fExprOp (Operator op)  e1 e2 _ = case M.lookup op logicCodes of
                                        checkTrue = [LDC 1] ++ [EQ]
                                        len2 = codeSize val2
                                      
+fExprMeth :: Token -> [ValueOrAddress -> Code] -> ValueOrAddress -> Code
+fExprMeth (LowerId "print") es _ = concatMap (\x -> x Value ++ [TRAP 0]) es
+fExprMeth (LowerId id) es _ = concat $ (map (\x -> x Value) es) ++ ([Bsr id] : [])
+
 opCodes :: Map String Instr
 opCodes = fromList [ ("+", ADD), ("-", SUB),  ("*", MUL), ("/", DIV), ("%", MOD)
                    , ("<=", LE), (">=", GE),  ("<", LT),  (">", GT),  ("==", EQ)

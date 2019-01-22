@@ -23,6 +23,7 @@ data Stat = StatDecl   Decl
 data Expr = ExprConst  Token
           | ExprVar    Token
           | ExprOper   Token Expr Expr
+          | ExprMeth   Token [Expr]
           deriving Show
 
 -- Parser for *, / and % operators
@@ -49,12 +50,10 @@ braced        p = pack (symbol COpen) p (symbol CClose)
 
 pExprSimple :: Parser Token Expr
 pExprSimple =  ExprConst <$> sConst
+           <|> ExprMeth  <$> sLowerId <*> parenthesised (listOf pExpr (satisfy (== Comma)))
            <|> ExprVar   <$> sLowerId
            <|> parenthesised pExpr
 
-
---pExpr :: Parser Token Expr
---pExpr = Chainr pExprSimple (ExprOper <$> sOperator) 
 
 pExpr :: Parser Token Expr
 pExpr = flip ExprOper <$> chainl pExprSimple (ExprOper <$> sOperator) <*> satisfy (==(Operator "=")) <*> pExpr

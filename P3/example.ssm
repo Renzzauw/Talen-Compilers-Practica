@@ -1,32 +1,15 @@
 	Bsr main
 	HALT
 main:
-	LDC 0
-	LDS 0
-	LDLA 37
-	STA 0
+	LDC 2
+	LDC 3
+	Bsr printadd
 	AJS -1
-	BRA 20
-	LDL 37
-	LDC 1
-	ADD
-	LDS 0
-	LDLA 37
-	STA 0
-	AJS -1
-	LDC 1
-	LDC 1
-	ADD
-	AJS -1
-	LDL 37
-	LDC 69
-	LT
-	BRT -27
 	RET
-genie:
-	LDC 1
-	LDS 0
-	LDLA 37
-	STA 0
+printadd:
+	LDL 37
+	LDL 37
+	ADD
+	TRAP 0
 	AJS -1
 	RET
