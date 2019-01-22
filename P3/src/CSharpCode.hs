@@ -80,8 +80,8 @@ fExprOp (Operator "=") e1 e2 _ = e2 Value ++ [LDS 0] ++ e1 Address ++ [STA 0]
 fExprOp (Operator op)  e1 e2 _ = case M.lookup op logicCodes of
                                  Nothing  ->  val1 ++ val2 ++ [opCodes ! op]
                                  Just XOR -> val1 ++ val2 ++ [opCodes ! op]
-                                 Just AND -> val1 ++ checkTrue ++ [BRF (len2 + 2)] ++ val2
-                                 Just OR  -> val1 ++ checkTrue ++ [BRT (len2 + 2)] ++ val2
+                                 Just AND -> val1 ++ checkTrue ++ [BRF (len2 + 2)] ++ val2 ++ [AND]
+                                 Just OR  -> val1 ++ checkTrue ++ [BRT (len2 + 2)] ++ val2 ++ [OR]
                                  where val1 = e1 Value
                                        val2 = e2 Value
                                        checkTrue = [LDC 1] ++ [EQ]

@@ -54,9 +54,12 @@ pExprSimple =  ExprConst <$> sConst
            <|> parenthesised pExpr
 
 
-pExpr :: Parser Token Expr
-pExpr = chainr pExprSimple (ExprOper <$> sOperator)
+--pExpr :: Parser Token Expr
+--pExpr = Chainr pExprSimple (ExprOper <$> sOperator) 
 
+pExpr :: Parser Token Expr
+pExpr = flip ExprOper <$> chainl pExprSimple (ExprOper <$> sOperator) <*> satisfy (==(Operator "=")) <*> pExpr
+        <|> chainr pExprSimple (ExprOper <$> sOperator) 
 
 -- Member parser
 pMember :: Parser Token Member
@@ -72,10 +75,12 @@ pStatDecl =  pStat
 pStat :: Parser Token Stat
 pStat =  StatExpr <$> pExpr <*  sSemi
      <|> StatIf     <$ symbol KeyIf     <*> parenthesised pExpr     <*> pStat <*> optionalElse
-     <|> StatWhile  <$ symbol KeyWhile  <*> parenthesised pExpr     <*> pStat
+     <|> StatWhile  <$ symbol KeyWhile  <*> parenthesised pExpr     <*> pStat                   -- Actual while loop
+     -- <|> StatWhile  <$ symbol KeyFor    <*> forParents              <*> pStat                   -- for loop desugered to while loop
      <|> StatReturn <$ symbol KeyReturn <*> pExpr                   <*  sSemi
      <|> pBlock
      where optionalElse = option ((\_ x -> x) <$> symbol KeyElse <*> pStat) (StatBlock [])
+           --forParents   = parenthesised (pExpr <$ symbol Semicolon <*> pExpr <$ symbol Semicolon <*> pExpr)
 
 -- Block parser
 pBlock :: Parser Token Stat

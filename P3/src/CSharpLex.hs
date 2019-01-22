@@ -169,9 +169,9 @@ sConst  = satisfy isConst
 
 sOperator :: Parser Token Token
 sOperator = satisfy isOperator
-    where isOperator (Operator _) = True
-          isOperator _            = False
-
+    where isOperator (Operator "=") = False
+          isOperator (Operator _)   = True
+          isOperator _              = False
 
 sSemi :: Parser Token Token
 sSemi =  symbol Semicolon
