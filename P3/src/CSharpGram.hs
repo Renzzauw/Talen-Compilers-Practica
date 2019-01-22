@@ -16,6 +16,7 @@ data Stat = StatDecl   Decl
           | StatIf     Expr Stat Stat
           | StatWhile  Expr Stat
           | StatReturn Expr
+          | StatFor    Stat Expr Stat Stat
           | StatBlock  [Stat]
           deriving Show
 
@@ -23,8 +24,6 @@ data Expr = ExprConst  Token
           | ExprVar    Token
           | ExprOper   Token Expr Expr
           deriving Show
-
-type For = [Expr] -- A for loop has 3 expressions: A decleration, a true/false expression, and one for iterating
 
 -- Parser for *, / and % operators
 sOperator4 :: Parser Token Token
@@ -73,14 +72,14 @@ pStatDecl =  pStat
 
 -- Declaration type parser (???)         
 pStat :: Parser Token Stat
-pStat =  StatExpr <$> pExpr <*  sSemi
+pStat =  StatExpr <$> pExpr <* sSemi
      <|> StatIf     <$ symbol KeyIf     <*> parenthesised pExpr     <*> pStat <*> optionalElse
      <|> StatWhile  <$ symbol KeyWhile  <*> parenthesised pExpr     <*> pStat                   -- Actual while loop
-     -- <|> StatWhile  <$ symbol KeyFor    <*> forParents              <*> pStat                   -- for loop desugered to while loop
+     <|> StatFor    <$ symbol KeyFor    <*> (satisfy (== POpen) *> pStat) <*> (pExpr <* sSemi) <*> (exprNoSemi <* satisfy (== PClose)) <*> pStat                   -- for loop desugered to while loop
      <|> StatReturn <$ symbol KeyReturn <*> pExpr                   <*  sSemi
      <|> pBlock
      where optionalElse = option ((\_ x -> x) <$> symbol KeyElse <*> pStat) (StatBlock [])
-           --forParents   = parenthesised (pExpr <$ symbol Semicolon <*> pExpr <$ symbol Semicolon <*> pExpr)
+           exprNoSemi = StatExpr <$> pExpr
 
 -- Block parser
 pBlock :: Parser Token Stat

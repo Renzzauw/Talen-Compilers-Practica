@@ -1,14 +1,30 @@
 	Bsr main
 	HALT
 main:
-	LDC 3
-	LDC 2
+	LDC 0
+	LDS 0
+	LDLA 37
+	STA 0
+	AJS -1
+	BRA 20
+	LDL 37
 	LDC 1
-	ADD
 	ADD
 	LDS 0
 	LDLA 37
 	STA 0
+	AJS -1
+	LDC 1
+	LDC 1
+	ADD
+	AJS -1
+	LDL 37
+	LDC 69
+	LT
+	BRT -27
+	RET
+genie:
+	LDC 1
 	LDS 0
 	LDLA 37
 	STA 0

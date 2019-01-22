@@ -16,7 +16,7 @@ codeAlgebra :: CSharpAlgebra Code Code Code (ValueOrAddress -> Code)
 codeAlgebra =
     ( fClas
     , (fMembDecl, fMembMeth)
-    , (fStatDecl, fStatExpr, fStatIf, fStatWhile, fStatReturn, fStatBlock)
+    , (fStatDecl, fStatExpr, fStatIf, fStatWhile, fStatReturn, fStatFor, fStatBlock)
     , (fExprCon, fExprVar, fExprOp)
     )
 
@@ -47,6 +47,10 @@ fStatIf e s1 s2 = c ++ [BRF (n1 + 2)] ++ s1 ++ [BRA n2] ++ s2
     where
         c        = e Value
         (n1, n2) = (codeSize s1, codeSize s2)
+
+-- For statements: We desugar to a While, with an extra statement before and during the loop
+fStatFor :: Code -> (ValueOrAddress -> Code) -> Code -> Code -> Code
+fStatFor s1 e s2 s3 = s1 ++ fStatWhile e (s2 ++ s3)
 
 -- While statements, join different blocks and add jumps around them using codeSize
 fStatWhile :: (ValueOrAddress -> Code) -> Code -> Code

@@ -22,6 +22,7 @@ data Token = POpen    | PClose      -- parentheses     ()
            | ConstInt  Int
            | ConstBool Int          -- Here 1 stands for true, and 0 stand for false
            | ConstChar Int          -- This is converted to ASCII values
+           | Function [Token]
            deriving (Eq, Show)
 
 -- ???           

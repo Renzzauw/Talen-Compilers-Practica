@@ -2,6 +2,15 @@ class Hello
 {
     void main()
     {
-        b = c = (3 + 2 + 1);
+        for (i = 0; i < 69; i = i + 1)
+        {
+            1 + 1;
+        }
     }
+
+    void genie(int a)
+    {
+        a = 1;
+    }
+
 }
