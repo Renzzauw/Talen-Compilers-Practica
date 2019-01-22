@@ -30,6 +30,7 @@ fMembDecl d = []
 
 -- Method definition, starts with a label and we insert the code for the body of the method and a return instruction
 fMembMeth :: Type -> Token -> [Decl] -> Code -> Code
+fMembMeth t (LowerId "print") ps s = s ++ [TRAP 0]
 fMembMeth t (LowerId x) ps s = [LABEL x] ++ s ++ [RET]
 
 -- Statement declaration, does not generate any code
@@ -76,38 +77,20 @@ fExprVar (LowerId x) va = let loc = 37 in case va of
 -- Assignment operator, computes the value of the right operand and duplicates it (LDS 0) and assigns it (STA 0)
 fExprOp :: Token -> (ValueOrAddress -> Code) -> (ValueOrAddress -> Code) -> ValueOrAddress -> Code
 fExprOp (Operator "=") e1 e2 _ = e2 Value ++ [LDS 0] ++ e1 Address ++ [STA 0]
-fExprOp (Operator op)  e1 e2 _ = val1 ++ val2 ++ case op of 
-                                                            -- Boolean operators
-                                                            "<=" -> [opCodes1 ! op]
-                                                            ">=" -> [opCodes1 ! op]
-                                                            "<"  -> [opCodes1 ! op]
-                                                            ">"  -> [opCodes1 ! op]
-                                                            "==" -> [opCodes1 ! op]
-                                                            "!=" -> [opCodes1 ! op]
-                                                            -- + or -
-                                                            "+"  -> [opCodes2 ! op]
-                                                            "-"  -> [opCodes2 ! op]
-                                                            -- *, / or %
-                                                            "*"  -> [opCodes3 ! op]
-                                                            "/"  -> [opCodes3 ! op]
-                                                            "%"  -> [opCodes3 ! op]
-                                            where val1 = e1 Value
-                                                  val2 = e2 Value
-                                                  
---opCodes :: Map String Instr
---opCodes = fromList [ ("+", ADD), ("-", SUB),  ("*", MUL), ("/", DIV), ("%", MOD)
---                   , ("<=", LE), (">=", GE),  ("<", LT),  (">", GT),  ("==", EQ)
---                   , ("!=", NE), ("&&", AND), ("||", OR), ("^", XOR) ]
-
--- Boolean operators
-opCodes1 :: Map String Instr
-opCodes1 = fromList [ ("<=", LE), (">=", GE),  ("<", LT),  (">", GT),  ("==", EQ)
-                    , ("!=", NE), ("&&", AND), ("||", OR), ("^", XOR) ]
-
--- Plus and minus operators
-opCodes2 :: Map String Instr
-opCodes2 = fromList [ ("+", ADD), ("-", SUB) ]
-
--- Multiplication operators
-opCodes3 :: Map String Instr
-opCodes3 = fromList [ ("*", MUL), ("/", DIV), ("%", MOD) ]
+fExprOp (Operator op)  e1 e2 _ = case M.lookup op logicCodes of
+                                 Nothing  ->  val1 ++ val2 ++ [opCodes ! op]
+                                 Just XOR -> val1 ++ val2 ++ [opCodes ! op]
+                                 Just AND -> val1 ++ checkTrue ++ [BRF (len2 + 2)] ++ val2
+                                 Just OR  -> val1 ++ checkTrue ++ [BRT (len2 + 2)] ++ val2
+                                 where val1 = e1 Value
+                                       val2 = e2 Value
+                                       checkTrue = [LDC 1] ++ [EQ]
+                                       len2 = codeSize val2
+                                     
+opCodes :: Map String Instr
+opCodes = fromList [ ("+", ADD), ("-", SUB),  ("*", MUL), ("/", DIV), ("%", MOD)
+                   , ("<=", LE), (">=", GE),  ("<", LT),  (">", GT),  ("==", EQ)
+                   , ("!=", NE)]
+    
+logicCodes :: Map String Instr
+logicCodes = fromList[("&&", AND), ("||", OR), ("^", XOR)]

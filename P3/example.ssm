@@ -1,0 +1,12 @@
+	Bsr main
+	HALT
+main:
+	LDC 1
+	LDC 1
+	EQ
+	BRF 7
+	LDC 1
+	LDC 0
+	ADD
+	AJS -1
+	RET

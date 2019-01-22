@@ -19,49 +19,12 @@ data Stat = StatDecl   Decl
           | StatBlock  [Stat]
           deriving Show
 
-data Expr = ExprConst Token
-          | ExprVar   Token
-          | ExprOper1 Operator1 Operator2 | Operator2 -- =
-          | ExprOper2 Operator2 Operator3 | Operator3 -- && | || | <= | < | >= | > | == | != | ^
-          | ExprOper3 Operator3 Operator4 | Operator4 -- + | -
-          | ExprOper4 Operator4                       -- * | / | %
+data Expr = ExprConst  Token
+          | ExprVar    Token
+          | ExprOper   Token Expr Expr
           deriving Show
 
-data Operator1 = Opr1 Token Expr Expr 
-        deriving Show
-data Operator2 = Opr2 Token Expr Expr
-        deriving Show
-data Operator3 = Opr3 Token Expr Expr
-        deriving Show
-data Operator4 = Opr4 Token Expr Expr
-        deriving Show
-
--- Parser for = operator
-sOperator1 :: Parser Token Token
-sOperator1 = satisfy isOperator
-    where isOperator (Operator "=") = True
-          isOperator _              = False
-
--- Parser for boolean operators          
-sOperator2 :: Parser Token Token
-sOperator2 = satisfy isOperator
-    where isOperator (Operator "&&") = True
-          isOperator (Operator "||") = True
-          isOperator (Operator "<=") = True
-          isOperator (Operator "<")  = True
-          isOperator (Operator ">=") = True
-          isOperator (Operator ">")  = True
-          isOperator (Operator "==") = True
-          isOperator (Operator "!=") = True
-          isOperator (Operator "^")  = True
-          isOperator _               = False
-
--- Parser for + and - operators
-sOperator3 :: Parser Token Token
-sOperator3 = satisfy isOperator
-    where isOperator (Operator "+") = True
-          isOperator (Operator "-") = True
-          isOperator _              = False
+type For = [Expr] -- A for loop has 3 expressions: A decleration, a true/false expression, and one for iterating
 
 -- Parser for *, / and % operators
 sOperator4 :: Parser Token Token
@@ -88,14 +51,11 @@ braced        p = pack (symbol COpen) p (symbol CClose)
 pExprSimple :: Parser Token Expr
 pExprSimple =  ExprConst <$> sConst
            <|> ExprVar   <$> sLowerId
-           <|> parenthesised pExpr1
-           <|> parenthesised pExpr2
-           <|> parenthesised pExpr3
-           <|> parenthesised pExpr4
+           <|> parenthesised pExpr
 
--- OUDE PARSER COMBINATOR EXPRESSIONS
---pExpr :: Parser Token Expr
---pExpr = chainr pExprSimple (ExprOper <$> sOperator)
+
+pExpr :: Parser Token Expr
+pExpr = chainr pExprSimple (ExprOper <$> sOperator)
 
 
 -- Member parser
@@ -111,9 +71,9 @@ pStatDecl =  pStat
 -- Declaration type parser (???)         
 pStat :: Parser Token Stat
 pStat =  StatExpr <$> pExpr <*  sSemi
-     <|> StatIf     <$ symbol KeyIf     <*> parenthesised pExpr <*> pStat <*> optionalElse
-     <|> StatWhile  <$ symbol KeyWhile  <*> parenthesised pExpr <*> pStat
-     <|> StatReturn <$ symbol KeyReturn <*> pExpr               <*  sSemi
+     <|> StatIf     <$ symbol KeyIf     <*> parenthesised pExpr     <*> pStat <*> optionalElse
+     <|> StatWhile  <$ symbol KeyWhile  <*> parenthesised pExpr     <*> pStat
+     <|> StatReturn <$ symbol KeyReturn <*> pExpr                   <*  sSemi
      <|> pBlock
      where optionalElse = option ((\_ x -> x) <$> symbol KeyElse <*> pStat) (StatBlock [])
 

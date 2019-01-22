@@ -12,6 +12,7 @@ data Token = POpen    | PClose      -- parentheses     ()
            | Comma    | Semicolon
            | KeyIf    | KeyElse
            | KeyWhile | KeyReturn
+           | KeyFor
            | KeyTry   | KeyCatch
            | KeyClass | KeyVoid
            | StdType   String       -- the 8 standard types
@@ -49,6 +50,7 @@ terminals =
     , ( KeyIf     , "if"     )
     , ( KeyElse   , "else"   )
     , ( KeyWhile  , "while"  )
+    , ( KeyFor    , "for"    )
     , ( KeyReturn , "return" )
     , ( KeyTry    , "try"    )
     , ( KeyCatch  , "catch"  )
@@ -74,12 +76,12 @@ lexConstInt = (ConstInt . read) <$> greedy1 (satisfy isDigit)
 
 --lexConstBool will try and read boolean values
 lexConstBool :: Parser Char Token
-lexConstBool = (ConstBool . boolToInt) <$> choice[token "True",token "False"]
+lexConstBool = (ConstBool . boolToInt) <$> choice[token "true",token "false"]
 
 -- Small helper function to convert booleans (in string form) to int
 boolToInt :: String -> Int
-boolToInt "True" = 1
-boolToInt "False" = 0
+boolToInt "true" = 1
+boolToInt "false" = 0
 
 --lexConstChar will lex a single character between apostrophes
 lexConstChar :: Parser Char Token
@@ -122,11 +124,26 @@ lexicalScanner = lexWhiteSpace *> greedy (lexToken <* lexWhiteSpace) <* eof
 
 -- This is a second scanner, that removes all comments, and leaves the result as it is
 commentScanner :: Parser Char String
-commentScanner = greedy anySymbol <* greedy (lexComment <* greedy anySymbol) *> greedy anySymbol <* eof
+commentScanner = (++) <$> reduceString <*> greedy anySymbol <* eof
+
+reduceString :: Parser Char String
+reduceString = concat <$> greedy (tilComment <* tilBreak)
 
 -- Parser that detects single line comments
+{-
 lexComment :: Parser Char String
-lexComment = token "//" <|> greedy anySymbol <* token "\\n"
+lexComment =  (++) <$> token "//" <*> tilBreak
+-}
+
+-- Function that parses until it hits a breakline
+tilBreak :: Parser Char String
+tilBreak = ((const []) <$> token "\n") <<|>  (:) <$> anySymbol <*> tilBreak
+
+-- Function that parses until it hits a comment
+tilComment :: Parser Char String
+tilComment = ((const []) <$> token "//") <<|>  (:) <$> anySymbol <*> tilComment
+
+
 
 sStdType :: Parser Token Token
 sStdType = satisfy isStdType

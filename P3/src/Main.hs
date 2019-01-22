@@ -24,7 +24,7 @@ main = do
          -- compute a list of input an output files
          files <- case args of
                     []  ->  do
-                              putStrLn "no argument given; assuming example.cs"
+                              putStrLn "no argument given; assuming die ene testcase.cs"
                               return [("../example.cs", "../example.ssm")]
                     xs  ->  return (map (\ f -> (f, addExtension (dropExtension f) "ssm")) xs)
          -- translate each of the files
@@ -38,6 +38,8 @@ processFile (infile, outfile) =
     xs <- readFile infile
     writeFile outfile (process xs)
     putStrLn (outfile ++ " written")
+    _ <- getChar
+    return ()
   where process = formatCode
                 . foldCSharp codeAlgebra
                 . start (pClass <* eof)
