@@ -2,6 +2,7 @@ module CSharpGram where
 
 import ParseLib.Abstract hiding (braced, bracketed, parenthesised)
 import CSharpLex
+import Data.Map as M
 import Prelude hiding ((<*),(*>),(<$))
 
 data Class = Class Token [Member]
@@ -27,11 +28,33 @@ data Expr = ExprConst  Token
           deriving Show
 
 -- Parser for *, / and % operators
-sOperator4 :: Parser Token Token
-sOperator4 = satisfy isOperator
+sOperator1 :: Parser Token Token
+sOperator1 = satisfy isOperator
     where isOperator (Operator "*") = True
           isOperator (Operator "/") = True
           isOperator (Operator "%") = True
+          isOperator _              = False  
+
+          
+-- Parser for + and - operators
+sOperator2 :: Parser Token Token
+sOperator2 = satisfy isOperator
+    where isOperator (Operator "+") = True
+          isOperator (Operator "-") = True
+          isOperator _              = False  
+
+-- Parser for logical operators
+sOperator3 :: Parser Token Token
+sOperator3 = satisfy isOperator
+    where isOperator (Operator "&&") = True
+          isOperator (Operator "||") = True
+          isOperator (Operator "^") = True
+          isOperator (Operator "==") = True
+          isOperator (Operator "<=") = True
+          isOperator (Operator "<") = True
+          isOperator (Operator ">") = True
+          isOperator (Operator ">=") = True
+          isOperator (Operator "!=") = True
           isOperator _              = False  
           
 data Decl = Decl Type Token
@@ -50,14 +73,36 @@ braced        p = pack (symbol COpen) p (symbol CClose)
 
 pExprSimple :: Parser Token Expr
 pExprSimple =  ExprConst <$> sConst
-           <|> ExprMeth  <$> sLowerId <*> parenthesised (listOf pExpr (satisfy (== Comma)))
+           <|> ExprMeth  <$> sLowerId <*> parenthesised (option (listOf pExpr (satisfy (== Comma))) [])
            <|> ExprVar   <$> sLowerId
            <|> parenthesised pExpr
 
 
 pExpr :: Parser Token Expr
-pExpr = flip ExprOper <$> chainl pExprSimple (ExprOper <$> sOperator) <*> satisfy (==(Operator "=")) <*> pExpr
-        <|> chainr pExprSimple (ExprOper <$> sOperator) 
+pExpr = flip ExprOper <$> lower <*> satisfy (==(Operator "=")) <*> pExpr
+        <|> pExpr3
+        <|> pExprSimple
+        where lower = parenthesised pExpr <|> pExpr3
+
+        
+pExpr3 :: Parser Token Expr
+pExpr3 = flip ExprOper <$> lower <*> sOperator3 <*> pExpr3
+        <|> pExpr2
+        <|> pExprSimple
+        where lower = parenthesised pExpr <|> pExpr2
+
+        
+pExpr2 :: Parser Token Expr
+pExpr2 = flip ExprOper <$> lower <*> sOperator2 <*> pExpr2
+        <|> pExpr1
+        <|> pExprSimple
+        where lower = parenthesised pExpr <|> pExpr1
+
+pExpr1 :: Parser Token Expr
+pExpr1 = flip ExprOper <$> pExprSimple <*> sOperator1 <*> pExpr1
+        <|> pExprSimple
+
+
 
 -- Member parser
 pMember :: Parser Token Member
@@ -111,4 +156,6 @@ pDeclSemi = const <$> pDecl <*> sSemi
 -- Class declaration parser (???)
 pClass :: Parser Token Class
 pClass = Class <$ symbol KeyClass <*> sUpperId <*> braced (many pMember)
+
+type Env = Map Int Int
 

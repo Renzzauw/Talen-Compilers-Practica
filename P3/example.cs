@@ -2,11 +2,9 @@ class Hello
 {
     void main()
     {
-        printadd(2, 3);
-    }
+        print(3 + 5 * 2);
 
-    void printadd(int a, int b)
-    {
-        print(a + b);
+        print(3 * 5 + 2);
     }
 }
+

@@ -1,14 +1,17 @@
 	Bsr main
 	HALT
 main:
-	LDC 2
 	LDC 3
-	Bsr printadd
+	LDC 5
+	LDC 2
+	MUL
+	ADD
+	TRAP 0
 	AJS -1
-	RET
-printadd:
-	LDL 37
-	LDL 37
+	LDC 3
+	LDC 5
+	MUL
+	LDC 2
 	ADD
 	TRAP 0
 	AJS -1

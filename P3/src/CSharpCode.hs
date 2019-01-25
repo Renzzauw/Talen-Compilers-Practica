@@ -58,9 +58,9 @@ fStatWhile e s1 = [BRA n] ++ s1 ++ c ++ [BRT (-(n + k + 2))]
         c = e Value
         (n, k) = (codeSize s1, codeSize c)
 
--- Return statements, computes result, but then discards it (pop). Then return to caller     
+-- Return statements, computes result, Then return to caller. Set a boolean value in a register, that tells whether the method returned something
 fStatReturn :: (ValueOrAddress -> Code) -> Code
-fStatReturn e = e Value ++ [pop] ++ [RET]
+fStatReturn e = e Value ++ [STR R3] ++ [LDC 1] ++ [STR R4] ++ [RET]
 
 -- Whole block, flattens a list of Code by concattenating
 fStatBlock :: [Code] -> Code
@@ -83,16 +83,21 @@ fExprOp (Operator "=") e1 e2 _ = e2 Value ++ [LDS 0] ++ e1 Address ++ [STA 0]
 fExprOp (Operator op)  e1 e2 _ = case M.lookup op logicCodes of
                                  Nothing  ->  val1 ++ val2 ++ [opCodes ! op]
                                  Just XOR -> val1 ++ val2 ++ [opCodes ! op]
-                                 Just AND -> val1 ++ checkTrue ++ [BRF (len2 + 2)] ++ val2 ++ [AND]
-                                 Just OR  -> val1 ++ checkTrue ++ [BRT (len2 + 2)] ++ val2 ++ [OR]
+                                 Just AND -> val1 ++ [BRF (len2 + 2)] ++ val2 ++ [AND]
+                                 Just OR  -> val1 ++ [BRT (len2 + 2)] ++ val2 ++ [OR]
                                  where val1 = e1 Value
                                        val2 = e2 Value
-                                       checkTrue = [LDC 1] ++ [EQ]
                                        len2 = codeSize val2
-                                     
+                                   
+-- Method call, Check if something is print, if so, treat it differently. Then check whether the method has returned something                                        
 fExprMeth :: Token -> [ValueOrAddress -> Code] -> ValueOrAddress -> Code
 fExprMeth (LowerId "print") es _ = concatMap (\x -> x Value ++ [TRAP 0]) es
-fExprMeth (LowerId id) es _ = concat $ (map (\x -> x Value) es) ++ ([Bsr id] : [])
+fExprMeth (LowerId id) [] _ = [Bsr id] ++ checkForReturn
+fExprMeth (LowerId id) es _ = concat(map (\x -> x Value) es) ++ [Bsr id] ++ checkForReturn
+ 
+
+checkForReturn :: Code
+checkForReturn = [LDR R4] ++ [BRF 7] ++ [LDR R3] ++ [LDC 0] ++ [STR R4]
 
 opCodes :: Map String Instr
 opCodes = fromList [ ("+", ADD), ("-", SUB),  ("*", MUL), ("/", DIV), ("%", MOD)
