@@ -41,6 +41,17 @@ processFile (infile, outfile) =
     _ <- getChar
     return ()
   where process = formatCode
+                . errorCheck
                 . foldCSharp codeAlgebra
                 . start (pClass <* eof)
                 . start lexicalScanner . start commentScanner
+
+-- BONUS EXERCISE --                
+-- Looks through all the instructions to check for errors                
+-- Returns the original code if no error occurs                
+errorCheck :: Code -> Code
+-- Divide by zero exception
+errorCheck (LDC 0:DIV:xs) = error ("Error: Divide by zero exception!") 
+errorCheck (LDC 0:MOD:xs) = error ("Error: Divide by zero exception!")
+errorCheck (x:[])         = [x]
+errorCheck (x:y:xs)       = x : errorCheck (y:xs)
