@@ -2,7 +2,7 @@ module CSharpGram where
 
 import ParseLib.Abstract hiding (braced, bracketed, parenthesised)
 import CSharpLex
-import Data.Map as M
+import Data.Map as M hiding (foldr)
 import Prelude hiding ((<*),(*>),(<$))
 
 data Class = Class Token [Member]
@@ -157,5 +157,5 @@ pDeclSemi = const <$> pDecl <*> sSemi
 pClass :: Parser Token Class
 pClass = Class <$ symbol KeyClass <*> sUpperId <*> braced (many pMember)
 
-type Env = Map Int Int
+type Env = Map String Int
 

@@ -1,7 +1,7 @@
 module CSharpCode where
 
-import Prelude hiding (LT, GT, EQ)
-import Data.Map as M hiding (map)
+import Prelude as P hiding (LT, GT, EQ)
+import Data.Map as M
 import CSharpLex
 import CSharpGram
 import CSharpAlgebra
@@ -21,66 +21,67 @@ codeAlgebra =
     )
 
 -- Class, translated by calling the label "main" and halting execution. Followed by the code for all the methods   
-fClas :: Token -> [Code] -> Code
-fClas c ms = [Bsr "main", HALT] ++ concat ms
+fClas :: Env -> Token -> [Code] -> Code
+fClas _ c ms = [Bsr "main", HALT] ++ concat ms
 
 -- Method declaration, provides information to the compiler, but does not generate code
-fMembDecl :: Decl -> Code
-fMembDecl d = []
+fMembDecl ::Env ->  Decl -> Code
+fMembDecl _ d = []
 
 -- Method definition, starts with a label and we insert the code for the body of the method and a return instruction
-fMembMeth :: Type -> Token -> [Decl] -> Code -> Code
-fMembMeth t (LowerId x) ps s = [LABEL x] ++ s ++ [RET]
+fMembMeth :: Env -> Type -> Token -> [Decl] -> Code -> Code
+fMembMeth _ t (LowerId x) ps s = [LABEL x] ++ s ++ [RET]
 
 -- Statement declaration, does not generate any code
-fStatDecl :: Decl -> Code
-fStatDecl d = []
+fStatDecl :: Env -> Decl -> (Code,Env)
+fStatDecl e (Decl _  (LowerId name)) = ([], insert name 0 env)
+                      where env = M.map (\x -> x - 1) e
 
 -- statement is an expression, has a result but statements do not compute results so it is discarded (adjust stack pointer -1)
-fStatExpr :: (ValueOrAddress -> Code) -> Code
-fStatExpr e = e Value ++ [pop]
+fStatExpr :: Env -> (ValueOrAddress -> Code) -> (Code,Env)
+fStatExpr env e = (e Value ++ [pop],env)
 
 -- If statements, join different blocks and add jumps around them using codeSize
-fStatIf :: (ValueOrAddress -> Code) -> Code -> Code -> Code
-fStatIf e s1 s2 = c ++ [BRF (n1 + 2)] ++ s1 ++ [BRA n2] ++ s2
+fStatIf :: Env -> (ValueOrAddress -> Code) -> Code -> Code -> (Code,Env)
+fStatIf env e s1 s2 = (c ++ [BRF (n1 + 2)] ++ s1 ++ [BRA n2] ++ s2, env)
     where
         c        = e Value
         (n1, n2) = (codeSize s1, codeSize s2)
 
 -- For statements: We desugar to a While, with an extra statement before and during the loop
-fStatFor :: Code -> (ValueOrAddress -> Code) -> Code -> Code -> Code
-fStatFor s1 e s2 s3 = s1 ++ fStatWhile e (s2 ++ s3)
+fStatFor :: Env -> Code -> (ValueOrAddress -> Code) -> Code -> Code -> (Code,Env)
+fStatFor env s1 e s2 s3 = (s1 ++ fst (fStatWhile env e (s2 ++ s3)), snd (fStatWhile env e (s2 ++ s3)))
 
 -- While statements, join different blocks and add jumps around them using codeSize
-fStatWhile :: (ValueOrAddress -> Code) -> Code -> Code
-fStatWhile e s1 = [BRA n] ++ s1 ++ c ++ [BRT (-(n + k + 2))]
+fStatWhile :: Env -> (ValueOrAddress -> Code) -> Code -> (Code,Env)
+fStatWhile env e s1 = ([BRA n] ++ s1 ++ c ++ [BRT (-(n + k + 2))],env)
     where
         c = e Value
         (n, k) = (codeSize s1, codeSize c)
 
 -- Return statements, computes result, Then return to caller. Set a boolean value in a register, that tells whether the method returned something
-fStatReturn :: (ValueOrAddress -> Code) -> Code
-fStatReturn e = e Value ++ [STR R3] ++ [LDC 1] ++ [STR R4] ++ [RET]
+fStatReturn :: Env -> (ValueOrAddress -> Code) -> (Code,Env)
+fStatReturn env e = (e Value ++ [STR R3] ++ [LDC 1] ++ [STR R4] ++ [RET], env)
 
 -- Whole block, flattens a list of Code by concattenating
-fStatBlock :: [Code] -> Code
-fStatBlock = concat
+fStatBlock :: Env -> [Code] -> (Code,Env)
+fStatBlock e c = (concat c, e)
 
 -- Expression constant, push the constant onto the stack
-fExprCon :: Token -> ValueOrAddress -> Code
-fExprCon (ConstInt n) va = [LDC n]
+fExprCon :: Env -> Token -> ValueOrAddress -> Code
+fExprCon _ (ConstInt n) va = [LDC n]
 
 -- Expression variable, loads a local variable or its address (depending on argument va)
 -- At the moment doesn't calculate location of local variables yet, so uses default location 37
-fExprVar :: Token -> ValueOrAddress -> Code
-fExprVar (LowerId x) va = let loc = 37 in case va of
-                                              Value    ->  [LDL  loc]
-                                              Address  ->  [LDLA loc]
+fExprVar :: Env -> Token -> ValueOrAddress -> Code
+fExprVar e (LowerId x) va = let loc = e ! x in case va of
+                                          Value    ->  [LDL  loc]
+                                          Address  ->  [LDLA loc]
 
 -- Assignment operator, computes the value of the right operand and duplicates it (LDS 0) and assigns it (STA 0)
-fExprOp :: Token -> (ValueOrAddress -> Code) -> (ValueOrAddress -> Code) -> ValueOrAddress -> Code
-fExprOp (Operator "=") e1 e2 _ = e2 Value ++ [LDS 0] ++ e1 Address ++ [STA 0]
-fExprOp (Operator op)  e1 e2 _ = case M.lookup op logicCodes of
+fExprOp :: Env -> Token -> (ValueOrAddress -> Code) -> (ValueOrAddress -> Code) -> ValueOrAddress -> Code
+fExprOp e (Operator "=") e1 e2 _ = e2 Value ++ [LDS 0] ++ e1 Address ++ [STA 0]
+fExprOp e (Operator op)  e1 e2 _ = case M.lookup op logicCodes of
                                  Nothing  ->  val1 ++ val2 ++ [opCodes ! op]
                                  Just XOR -> val1 ++ val2 ++ [opCodes ! op]
                                  Just AND -> val1 ++ [BRF (len2 + 2)] ++ val2 ++ [AND]
@@ -90,10 +91,10 @@ fExprOp (Operator op)  e1 e2 _ = case M.lookup op logicCodes of
                                        len2 = codeSize val2
                                    
 -- Method call, Check if something is print, if so, treat it differently. Then check whether the method has returned something                                        
-fExprMeth :: Token -> [ValueOrAddress -> Code] -> ValueOrAddress -> Code
-fExprMeth (LowerId "print") es _ = concatMap (\x -> x Value ++ [TRAP 0]) es
-fExprMeth (LowerId id) [] _ = [Bsr id] ++ checkForReturn
-fExprMeth (LowerId id) es _ = concat(map (\x -> x Value) es) ++ [Bsr id] ++ checkForReturn
+fExprMeth :: Env -> Token -> [ValueOrAddress -> Code] -> ValueOrAddress -> Code
+fExprMeth _ (LowerId "print") es _ = concatMap (\x -> x Value ++ [TRAP 0]) es
+fExprMeth _ (LowerId id) [] _ = [Bsr id] ++ checkForReturn
+fExprMeth _ (LowerId id) es _ = concat(P.map (\x -> x Value) es) ++ [Bsr id] ++ checkForReturn
  
 
 checkForReturn :: Code

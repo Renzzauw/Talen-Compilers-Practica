@@ -2,9 +2,15 @@ class Hello
 {
     void main()
     {
-        print(3 + 5 * 2);
-
-        print(3 * 5 + 2);
+        int x;
+        x = 1;
+        int y;
+        y = 15;
+        int z;
+        z = 11;
+        int yeet;
+        yeet = 69;
+        print(z + 1);
     }
 }
 

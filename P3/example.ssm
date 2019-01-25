@@ -1,17 +1,28 @@
 	Bsr main
 	HALT
 main:
-	LDC 3
-	LDC 5
-	LDC 2
-	MUL
-	ADD
-	TRAP 0
+	LDC 1
+	LDS 0
+	LDLA -1
+	STA 0
 	AJS -1
-	LDC 3
-	LDC 5
-	MUL
-	LDC 2
+	LDC 15
+	LDS 0
+	LDLA -1
+	STA 0
+	AJS -1
+	LDC 11
+	LDS 0
+	LDLA -1
+	STA 0
+	AJS -1
+	LDC 69
+	LDS 0
+	LDLA -1
+	STA 0
+	AJS -1
+	LDL -2
+	LDC 1
 	ADD
 	TRAP 0
 	AJS -1
