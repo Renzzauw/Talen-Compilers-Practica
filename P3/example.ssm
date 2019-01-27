@@ -3,25 +3,25 @@
 main:
 	LDC 1
 	LDS 0
-	LDLA -1
+	LDLA 0
 	STA 0
 	AJS -1
 	LDC 15
 	LDS 0
-	LDLA -1
+	LDLA 0
 	STA 0
 	AJS -1
 	LDC 11
 	LDS 0
-	LDLA -1
+	LDLA 0
 	STA 0
 	AJS -1
 	LDC 69
 	LDS 0
-	LDLA -1
+	LDLA 0
 	STA 0
 	AJS -1
-	LDL -2
+	LDL -1
 	LDC 1
 	ADD
 	TRAP 0

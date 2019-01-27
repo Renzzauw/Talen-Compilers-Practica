@@ -24,7 +24,7 @@ main = do
          -- compute a list of input an output files
          files <- case args of
                     []  ->  do
-                              putStrLn "no argument given; assuming die ene testcase.cs"
+                              putStrLn "no argument given; assuming example.cs"
                               return [("../example.cs", "../example.ssm")]
                     xs  ->  return (map (\ f -> (f, addExtension (dropExtension f) "ssm")) xs)
          -- translate each of the files
