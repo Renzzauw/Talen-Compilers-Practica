@@ -24,8 +24,7 @@ data Token = POpen    | PClose      -- parentheses     ()
            | ConstChar Int          -- This is converted to ASCII values
            | Function [Token]
            deriving (Eq, Show)
-
--- ???           
+           
 keyword :: String -> Parser Char String
 keyword [] = succeed ""
 keyword xs@(x:_) | isLetter x = do ys <- greedy (satisfy isAlphaNum)
@@ -129,12 +128,6 @@ commentScanner = (++) <$> reduceString <*> greedy anySymbol <* eof
 
 reduceString :: Parser Char String
 reduceString = concat <$> greedy (tilComment <* tilBreak)
-
--- Parser that detects single line comments
-{-
-lexComment :: Parser Char String
-lexComment =  (++) <$> token "//" <*> tilBreak
--}
 
 -- Function that parses until it hits a breakline
 tilBreak :: Parser Char String
