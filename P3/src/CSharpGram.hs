@@ -114,7 +114,7 @@ pStatDecl :: Parser Token Stat
 pStatDecl =  pStat
          <|> StatDecl <$> pDeclSemi
 
--- Declaration type parser (???)         
+-- Declaration type parser         
 pStat :: Parser Token Stat
 pStat =  StatExpr <$> pExpr <* sSemi
      <|> StatIf     <$ symbol KeyIf     <*> parenthesised pExpr     <*> pStat <*> optionalElse
@@ -136,7 +136,7 @@ pMeth = MemberM <$> methRetType <*> sLowerId <*> methArgList <*> pBlock
         methRetType = pType <|> (const TypeVoid <$> symbol KeyVoid)
         methArgList = parenthesised (option (listOf pDecl (symbol Comma)) [])
 
--- Type0 parser (???)      
+-- Type0 parser      
 pType0 :: Parser Token Type
 pType0 =  TypePrim <$> sStdType
       <|> TypeObj  <$> sUpperId
@@ -149,11 +149,11 @@ pType = foldr (const TypeArray) <$> pType0 <*> many (bracketed (succeed ()))
 pDecl :: Parser Token Decl
 pDecl = Decl <$> pType <*> sLowerId
 
--- Constant declaration parser (???)
+-- Constant declaration parser
 pDeclSemi :: Parser Token Decl
 pDeclSemi = const <$> pDecl <*> sSemi
 
--- Class declaration parser (???)
+-- Class declaration parser
 pClass :: Parser Token Class
 pClass = Class <$ symbol KeyClass <*> sUpperId <*> braced (many pMember)
 

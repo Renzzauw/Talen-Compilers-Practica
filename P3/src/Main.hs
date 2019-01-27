@@ -12,6 +12,12 @@ import CSharpAlgebra
 import SSM
 import CSharpCode
 
+
+-- ******************* M A D E   B Y *******************
+-- *          Hidde Veer 		    5721156						     *
+-- *          Renzo Schindeler 	5964962						     *
+-- *****************************************************
+
 -- Runs a parser
 start :: Parser s a -> [s] -> a
 start p = fst . head . filter (null . snd) . parse p
